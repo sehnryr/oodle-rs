@@ -33,8 +33,12 @@ pub enum CompressionLevel {
 }
 
 impl CompressionLevel {
+    /// Alias for HyperFast1
     pub const HYPER_FAST: CompressionLevel = CompressionLevel::HyperFast1;
+    /// Alias for Optimal2
     pub const OPTIMAL: CompressionLevel = CompressionLevel::Optimal2;
+    /// Alias for Optimal5
     pub const MAX: CompressionLevel = CompressionLevel::Optimal5;
+    /// Alias for HyperFast4
     pub const MIN: CompressionLevel = CompressionLevel::HyperFast4;
 }

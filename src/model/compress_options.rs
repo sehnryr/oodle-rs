@@ -64,70 +64,84 @@ impl Default for CompressOptions {
 }
 
 impl CompressOptions {
+    /// Creates a new `CompressOptions` instance with default values.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Sets the minimum match length.
     pub fn min_match_len(mut self, min_match_len: i32) -> Self {
         self.min_match_len = min_match_len;
         self
     }
 
+    /// Enables or disables seeking chunk reset.
     pub fn seek_chunk_reset(mut self, seek_chunk_reset: bool) -> Self {
         self.seek_chunk_reset = seek_chunk_reset;
         self
     }
 
+    /// Sets the length of the seeking chunk.
     pub fn seek_chunk_len(mut self, seek_chunk_len: i32) -> Self {
         self.seek_chunk_len = seek_chunk_len;
         self
     }
 
+    /// Sets the profile.
     pub fn profile(mut self, profile: Profile) -> Self {
         self.profile = profile;
         self
     }
 
+    /// Sets the dictionary size.
     pub fn dictionary_size(mut self, dictionary_size: i32) -> Self {
         self.dictionary_size = dictionary_size;
         self
     }
 
+    /// Sets the space-speed tradeoff bytes.
     pub fn space_speed_tradeoff_bytes(mut self, space_speed_tradeoff_bytes: i32) -> Self {
         self.space_speed_tradeoff_bytes = space_speed_tradeoff_bytes;
         self
     }
 
+    /// Sets whether to send quantum CRCs.
     pub fn send_quantum_crcs(mut self, send_quantum_crcs: bool) -> Self {
         self.send_quantum_crcs = send_quantum_crcs;
         self
     }
 
+    /// Sets the maximum local dictionary size.
     pub fn max_local_dictionary_size(mut self, max_local_dictionary_size: i32) -> Self {
         self.max_local_dictionary_size = max_local_dictionary_size;
         self
     }
 
+    /// Sets whether to make a long-range matcher.
     pub fn make_long_range_matcher(mut self, make_long_range_matcher: bool) -> Self {
         self.make_long_range_matcher = make_long_range_matcher;
         self
     }
 
+    /// Sets the match table size log2.
     pub fn match_table_size_log2(mut self, match_table_size_log2: i32) -> Self {
         self.match_table_size_log2 = match_table_size_log2;
         self
     }
 
+    /// Sets whether to jobify.
     pub fn jobify(mut self, jobify: Option<Jobify>) -> Self {
         self.jobify = jobify;
         self
     }
 
+    /// Sets the far match minimum length.
     pub fn far_match_min_len(mut self, far_match_min_len: i32) -> Self {
         self.far_match_min_len = far_match_min_len;
         self
     }
 
+    /// Sets the far match offset log2.
     pub fn far_match_offset_log2(mut self, far_match_offset_log2: i32) -> Self {
         self.far_match_offset_log2 = far_match_offset_log2;
         self

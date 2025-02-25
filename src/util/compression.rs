@@ -1,6 +1,16 @@
 use crate::bindings;
 use crate::model::Compressor;
 
+/// Get the compressed buffer size hint.
+///
+/// # Arguments
+/// * `decompressed_len` - The length of the decompressed data.
+/// * `compressor` - The compressor to use.
+///
+/// # Returns
+/// The minimum size of the compressed buffer to be allocated.
+///
+/// Note: hint size is likely to be larger than the actual compressed size.
 pub fn get_compressed_buffer_size_hint(decompressed_len: usize, compressor: Compressor) -> usize {
     let n = unsafe {
         bindings::oo2_OodleLZ_GetCompressedBufferSizeNeeded(
