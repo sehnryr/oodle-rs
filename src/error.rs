@@ -15,4 +15,16 @@ pub enum Error {
     /// Decompression failed.
     #[error("Decompression failed")]
     DecompressionFailed,
+
+    /// Empty buffer.
+    #[error("Empty buffer: {0}")]
+    EmptyBuffer(&'static str),
+
+    /// Invalid dictionary length.
+    #[error("Invalid dictionary length: {0}")]
+    InvalidDictionaryLength(&'static str),
+
+    /// Invalid dictionary base.
+    #[error("Invalid dictionary base: {0}")]
+    InvalidDictionaryBase(&'static str),
 }

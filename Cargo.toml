@@ -11,6 +11,7 @@ exclude = ["/oodle-ue/", "/test-data/", "/.*", "/build.rs"]
 include = ["/src/"]
 
 [dependencies]
+const_format = "0.2.34"
 thiserror = "2.0.11"
 
 [build-dependencies]
