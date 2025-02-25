@@ -7,6 +7,8 @@ edition = "2024"
 publish = false
 keywords = ["oodle", "compression"]
 categories = ["compression"]
+exclude = ["/oodle-ue/", "/test-data/", "/.*", "/build.rs"]
+include = ["/src/"]
 
 [dependencies]
 thiserror = "2.0.11"
