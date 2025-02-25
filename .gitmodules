@@ -1,0 +1,6 @@
+[submodule "oodle-ue"]
+	path = oodle-ue
+	url = https://github.com/WorkingRobot/OodleUE.git
+[submodule "test-data"]
+	path = test-data
+	url = https://github.com/sehnryr/oodle-test-data.git

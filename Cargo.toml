@@ -1,11 +1,16 @@
 [package]
-name = "oodle-rs"
+name = "oodle"
+repository = "https://github.com/sehnryr/oodle-rs"
+description = "A Rust wrapper for the Oodle compression library (to be reimplemented)"
 version = "0.1.0"
 edition = "2024"
+publish = false
+keywords = ["oodle", "compression"]
+categories = ["compression"]
 
 [dependencies]
 thiserror = "2.0.11"
 
-[dev-dependencies]
-oodle-sys = "0.2.0"
-rand = "0.9.0"
+[build-dependencies]
+bindgen = "0.71.1"
+cc = { version = "1.2.15", features = ["parallel"] }
