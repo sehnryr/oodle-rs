@@ -1,28 +1,19 @@
-use crate::bindings;
-use crate::model::Compressor;
+use crate::{BLOCK_HEADER_BYTES_MAX, BLOCK_LEN, CHUNK_HEADER_SIZE, QUANTUM_HEADER_MAX_SIZE};
 
 /// Get the compressed buffer size hint.
 ///
 /// # Arguments
 /// * `decompressed_len` - The length of the decompressed data.
-/// * `compressor` - The compressor to use.
 ///
 /// # Returns
 /// The minimum size of the compressed buffer to be allocated.
 ///
 /// Note: hint size is likely to be larger than the actual compressed size.
-pub fn get_compressed_buffer_size_hint(decompressed_len: usize, compressor: Compressor) -> usize {
-    let n = unsafe {
-        bindings::oo2_OodleLZ_GetCompressedBufferSizeNeeded(
-            compressor.into(),
-            decompressed_len as isize,
-        )
-    };
+pub fn get_compressed_buffer_size_hint(decompressed_len: usize) -> usize {
+    let mut padding_per_seek_chunk = BLOCK_HEADER_BYTES_MAX + QUANTUM_HEADER_MAX_SIZE;
+    padding_per_seek_chunk += CHUNK_HEADER_SIZE * 2;
 
-    if n < 0 {
-        // The result of `oo2_OodleLZ_GetCompressedBufferSizeNeeded` is non-negative.
-        unreachable!()
-    }
+    let num_seek_chunks = (decompressed_len + BLOCK_LEN - 1) / BLOCK_LEN;
 
-    n as usize
+    decompressed_len + num_seek_chunks * padding_per_seek_chunk
 }

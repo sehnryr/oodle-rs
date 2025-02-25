@@ -22,6 +22,11 @@ pub use crate::compress::compress;
 pub use crate::decompress::decompress;
 pub use crate::util::compression::get_compressed_buffer_size_hint;
 
+const BLOCK_LEN: usize = 1 << 18;
+const BLOCK_HEADER_BYTES_MAX: usize = 2;
+const QUANTUM_HEADER_MAX_SIZE: usize = 16;
+const CHUNK_HEADER_SIZE: usize = 3;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -36,15 +41,13 @@ mod tests {
     fn test_compress() {
         let decompressed = std::fs::read("test-data/raw/xml").unwrap();
 
-        let compressor = Compressor::Kraken;
-
-        let compressed_size_hint = get_compressed_buffer_size_hint(decompressed.len(), compressor);
+        let compressed_size_hint = get_compressed_buffer_size_hint(decompressed.len());
         let mut compressed = vec![0; compressed_size_hint];
 
         let result = compress(
             &decompressed,
             &mut compressed,
-            compressor,
+            Compressor::Kraken,
             CompressionLevel::Normal,
             None,
             None,
