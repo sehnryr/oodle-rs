@@ -69,8 +69,6 @@ fn main() {
         .allowlist_function("oo2::OodleLZ_Decompress")
         .allowlist_function("oo2::OodleLZ_GetAllChunksCompressor")
         .allowlist_function("oo2::OodleLZDecoder_DecodeSome")
-        .allowlist_function("oo2::OodleLZDecoder_Create_Sub") // TEST
-        .allowlist_function("oo2::OodleLZDecoder_Destroy") // TEST
         .allowlist_type("oo2::_OodleLZDecoder")
         // Define Oodle usage
         .clang_arg("-DOODLE_BUILDING_LIB")
