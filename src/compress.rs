@@ -1,4 +1,4 @@
-use crate::bindings;
+use crate::bindings::root::oo2::*;
 use crate::error::{Error, Result};
 use crate::model::{CompressOptions, CompressionLevel, Compressor};
 
@@ -38,7 +38,7 @@ pub fn compress(
     }
 
     let n = unsafe {
-        bindings::oo2_OodleLZ_Compress(
+        OodleLZ_Compress(
             compressor.into(),
             decompressed.as_ptr() as *const _,
             decompressed_len as isize,

@@ -27,4 +27,8 @@ pub enum Error {
     /// Invalid dictionary base.
     #[error("Invalid dictionary base: {0}")]
     InvalidDictionaryBase(&'static str),
+
+    /// Invalid compressor.
+    #[error("Invalid compressor")]
+    InvalidCompressor,
 }

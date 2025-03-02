@@ -1,32 +1,20 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-fn list_directories<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
-    let mut directories = Vec::new();
-    let mut stack = vec![path.as_ref().to_path_buf()];
-
-    while let Some(current) = stack.pop() {
-        for entry in std::fs::read_dir(current).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_dir() {
-                directories.push(path.clone());
-                stack.push(path);
-            }
-        }
-    }
-
-    directories
-}
-
 fn is_cpp<P: AsRef<Path>>(path: P) -> bool {
     path.as_ref().extension().map_or(false, |ext| ext == "cpp")
 }
 
 fn main() {
     let oodle_dir = PathBuf::from("oodle-src");
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-    let include_dirs = list_directories(oodle_dir.clone());
+    let include_dirs = [
+        oodle_dir.join("base"),
+        oodle_dir.join("core/public"),
+        oodle_dir.join("core/templates"),
+        oodle_dir.join("core"),
+    ];
 
     let cpp_files = include_dirs
         .clone()
@@ -62,33 +50,41 @@ fn main() {
         .flag_if_supported("-Wno-unused-variable")
         .compile("oodle2");
 
-    let bindings = bindgen::Builder::default()
+    bindgen::Builder::default()
         .clang_args(
             include_dirs
                 .iter()
                 .map(|dir| format!("-I{}", dir.display())),
         )
         .header(oodle_dir.join("core/oodlelzpub.h").to_string_lossy())
+        .header(
+            oodle_dir
+                .join("core/oodlelzcompressors.cpp")
+                .to_string_lossy(),
+        )
+        .enable_cxx_namespaces()
+        .rustified_enum(".*")
+        .allowlist_recursively(true)
+        .allowlist_function("oo2::OodleLZ_Compress")
+        .allowlist_function("oo2::OodleLZ_Decompress")
+        .allowlist_function("oo2::OodleLZ_GetAllChunksCompressor")
+        .allowlist_function("oo2::OodleLZDecoder_DecodeSome")
+        .allowlist_function("oo2::OodleLZDecoder_Create_Sub") // TEST
+        .allowlist_function("oo2::OodleLZDecoder_Destroy") // TEST
+        .allowlist_type("oo2::_OodleLZDecoder")
         // Define Oodle usage
         .clang_arg("-DOODLE_BUILDING_LIB")
         // Force C++ mode
         .clang_args(["-x", "c++"])
         .clang_arg("-std=c++20")
         .generate()
-        .expect("Unable to generate bindings");
-
-    bindings
+        .expect("Unable to generate bindings")
         .write_to_file("src/bindings.rs")
         .expect("Unable to write bindings");
 
-    println!("cargo:rerun-if-changed=src/lib.rs");
-
     // Link to the static library
     println!("cargo:rustc-link-lib=static=oodle2");
-    println!(
-        "cargo:rustc-link-search=native={}",
-        env::var("OUT_DIR").unwrap()
-    );
+    println!("cargo:rustc-link-search=native={}", out_dir.display());
 
     // Link to the C++ standard library
     println!("cargo:rustc-link-lib=dylib=stdc++");

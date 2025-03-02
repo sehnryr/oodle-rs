@@ -1,86 +1,81 @@
-use crate::bindings;
+use crate::bindings::root::oo2::*;
+use crate::error::{Error, Result};
 use crate::model::*;
 
-impl Into<bindings::oo2_OodleLZ_Compressor> for Compressor {
-    fn into(self) -> bindings::oo2_OodleLZ_Compressor {
-        match self {
-            Compressor::Kraken => bindings::oo2_OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
-            Compressor::Leviathan => bindings::oo2_OodleLZ_Compressor_OodleLZ_Compressor_Leviathan,
-            Compressor::Mermaid => bindings::oo2_OodleLZ_Compressor_OodleLZ_Compressor_Mermaid,
-            Compressor::Selkie => bindings::oo2_OodleLZ_Compressor_OodleLZ_Compressor_Selkie,
-            Compressor::Hydra => bindings::oo2_OodleLZ_Compressor_OodleLZ_Compressor_Hydra,
+impl TryFrom<OodleLZ_Compressor> for Compressor {
+    type Error = Error;
+
+    fn try_from(compressor: OodleLZ_Compressor) -> Result<Self> {
+        use OodleLZ_Compressor::*;
+        match compressor {
+            OodleLZ_Compressor_Kraken => Ok(Compressor::Kraken),
+            OodleLZ_Compressor_Leviathan => Ok(Compressor::Leviathan),
+            OodleLZ_Compressor_Mermaid => Ok(Compressor::Mermaid),
+            OodleLZ_Compressor_Selkie => Ok(Compressor::Selkie),
+            OodleLZ_Compressor_Hydra => Ok(Compressor::Hydra),
+            _ => Err(Error::InvalidCompressor),
         }
     }
 }
 
-impl Into<bindings::oo2_OodleLZ_CompressionLevel> for CompressionLevel {
-    fn into(self) -> bindings::oo2_OodleLZ_CompressionLevel {
+impl Into<OodleLZ_Compressor> for Compressor {
+    fn into(self) -> OodleLZ_Compressor {
+        use OodleLZ_Compressor::*;
         match self {
-            CompressionLevel::SuperFast => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_SuperFast
-            }
-            CompressionLevel::VeryFast => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_VeryFast
-            }
-            CompressionLevel::Fast => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_Fast
-            }
-            CompressionLevel::Normal => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_Normal
-            }
-            CompressionLevel::Optimal1 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_Optimal1
-            }
-            CompressionLevel::Optimal2 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_Optimal2
-            }
-            CompressionLevel::Optimal3 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_Optimal3
-            }
-            CompressionLevel::Optimal4 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_Optimal4
-            }
-            CompressionLevel::Optimal5 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_Optimal5
-            }
-            CompressionLevel::HyperFast1 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_HyperFast1
-            }
-            CompressionLevel::HyperFast2 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_HyperFast2
-            }
-            CompressionLevel::HyperFast3 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_HyperFast3
-            }
-            CompressionLevel::HyperFast4 => {
-                bindings::oo2_OodleLZ_CompressionLevel_OodleLZ_CompressionLevel_HyperFast4
-            }
+            Compressor::Kraken => OodleLZ_Compressor_Kraken,
+            Compressor::Leviathan => OodleLZ_Compressor_Leviathan,
+            Compressor::Mermaid => OodleLZ_Compressor_Mermaid,
+            Compressor::Selkie => OodleLZ_Compressor_Selkie,
+            Compressor::Hydra => OodleLZ_Compressor_Hydra,
         }
     }
 }
 
-impl Into<bindings::oo2_OodleLZ_Profile> for Profile {
-    fn into(self) -> bindings::oo2_OodleLZ_Profile {
+impl Into<OodleLZ_CompressionLevel> for CompressionLevel {
+    fn into(self) -> OodleLZ_CompressionLevel {
+        use OodleLZ_CompressionLevel::*;
         match self {
-            Profile::Main => bindings::oo2_OodleLZ_Profile_OodleLZ_Profile_Main,
-            Profile::Reduced => bindings::oo2_OodleLZ_Profile_OodleLZ_Profile_Reduced,
+            CompressionLevel::SuperFast => OodleLZ_CompressionLevel_SuperFast,
+            CompressionLevel::VeryFast => OodleLZ_CompressionLevel_VeryFast,
+            CompressionLevel::Fast => OodleLZ_CompressionLevel_Fast,
+            CompressionLevel::Normal => OodleLZ_CompressionLevel_Normal,
+            CompressionLevel::Optimal1 => OodleLZ_CompressionLevel_Optimal1,
+            CompressionLevel::Optimal2 => OodleLZ_CompressionLevel_Optimal2,
+            CompressionLevel::Optimal3 => OodleLZ_CompressionLevel_Optimal3,
+            CompressionLevel::Optimal4 => OodleLZ_CompressionLevel_Optimal4,
+            CompressionLevel::Optimal5 => OodleLZ_CompressionLevel_Optimal5,
+            CompressionLevel::HyperFast1 => OodleLZ_CompressionLevel_HyperFast1,
+            CompressionLevel::HyperFast2 => OodleLZ_CompressionLevel_HyperFast2,
+            CompressionLevel::HyperFast3 => OodleLZ_CompressionLevel_HyperFast3,
+            CompressionLevel::HyperFast4 => OodleLZ_CompressionLevel_HyperFast4,
         }
     }
 }
 
-impl Into<bindings::oo2_OodleLZ_Jobify> for Jobify {
-    fn into(self) -> bindings::oo2_OodleLZ_Jobify {
+impl Into<OodleLZ_Profile> for Profile {
+    fn into(self) -> OodleLZ_Profile {
+        use OodleLZ_Profile::*;
         match self {
-            Jobify::Default => bindings::oo2_OodleLZ_Jobify_OodleLZ_Jobify_Default,
-            Jobify::Normal => bindings::oo2_OodleLZ_Jobify_OodleLZ_Jobify_Normal,
-            Jobify::Aggressive => bindings::oo2_OodleLZ_Jobify_OodleLZ_Jobify_Aggressive,
+            Profile::Main => OodleLZ_Profile_Main,
+            Profile::Reduced => OodleLZ_Profile_Reduced,
         }
     }
 }
 
-impl Into<bindings::oo2_OodleLZ_CompressOptions> for CompressOptions {
-    fn into(self) -> bindings::oo2_OodleLZ_CompressOptions {
-        bindings::oo2_OodleLZ_CompressOptions {
+impl Into<OodleLZ_Jobify> for Jobify {
+    fn into(self) -> OodleLZ_Jobify {
+        use OodleLZ_Jobify::*;
+        match self {
+            Jobify::Default => OodleLZ_Jobify_Default,
+            Jobify::Normal => OodleLZ_Jobify_Normal,
+            Jobify::Aggressive => OodleLZ_Jobify_Aggressive,
+        }
+    }
+}
+
+impl Into<OodleLZ_CompressOptions> for CompressOptions {
+    fn into(self) -> OodleLZ_CompressOptions {
+        OodleLZ_CompressOptions {
             unused_was_verbosity: 0,
             minMatchLen: self.min_match_len,
             seekChunkReset: self.seek_chunk_reset as i32,
@@ -95,7 +90,7 @@ impl Into<bindings::oo2_OodleLZ_CompressOptions> for CompressOptions {
             matchTableSizeLog2: self.match_table_size_log2,
             jobify: match self.jobify {
                 Some(jobify) => jobify.into(),
-                None => bindings::oo2_OodleLZ_Jobify_OodleLZ_Jobify_Disable,
+                None => OodleLZ_Jobify::OodleLZ_Jobify_Disable,
             },
             jobifyUserPtr: std::ptr::null_mut(),
             farMatchMinLen: self.far_match_min_len,

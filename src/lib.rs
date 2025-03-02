@@ -1,13 +1,12 @@
 //! Kraken, Mermaid, Selkie, Leviathan compression.
 
 #![deny(missing_docs)]
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
 
-#[allow(non_upper_case_globals)]
-#[allow(non_camel_case_types)]
-#[allow(non_snake_case)]
 #[allow(dead_code)]
-#[allow(unused_imports)]
-#[allow(improper_ctypes)]
+#[allow(unsafe_op_in_unsafe_fn)]
 mod bindings;
 
 mod compress;
@@ -22,10 +21,14 @@ pub use crate::compress::compress;
 pub use crate::decompress::decompress;
 pub use crate::util::compression::get_compressed_buffer_size_hint;
 
+const CHUNK_LEN: usize = 128 * 1024;
 const BLOCK_LEN: usize = 1 << 18;
 const BLOCK_HEADER_BYTES_MAX: usize = 2;
 const QUANTUM_HEADER_MAX_SIZE: usize = 16;
 const CHUNK_HEADER_SIZE: usize = 3;
+const SCRATCH_ALIGNMENT_PAD: usize = 32;
+const ARRAY_INTERNAL_MAX_SCRATCH: usize = 48 * 1024;
+const MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ: usize = 4096;
 
 #[cfg(test)]
 mod tests {

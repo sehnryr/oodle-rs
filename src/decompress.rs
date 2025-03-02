@@ -1,8 +1,15 @@
+use std::mem::size_of;
+use std::ptr;
+
 use const_format::concatcp;
 
-use crate::BLOCK_LEN;
-use crate::bindings;
+use crate::bindings::root::oo2::*;
 use crate::error::{Error, Result};
+use crate::model::Compressor;
+use crate::{
+    ARRAY_INTERNAL_MAX_SCRATCH, BLOCK_LEN, CHUNK_LEN, MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ,
+    SCRATCH_ALIGNMENT_PAD,
+};
 
 /// Decompress some data from memory to memory synchronously.
 ///
@@ -42,61 +49,249 @@ pub fn decompress(
     let check_crc = check_crc.unwrap_or(false);
 
     // If dictionary_base is not provided, use decompressed as the dictionary
-    let (dictionary_base, dictionary_len) = match dictionary_base {
-        Some(dict) => (dict.as_mut_ptr(), dict.len()),
-        None => (decompressed.as_mut_ptr(), 0),
+    let (dictionary_base, mut dictionary_len) = match dictionary_base {
+        Some(dict) => {
+            let dict_len = dict.len();
+
+            // Ensure dictionary_base is contiguous with decompressed
+            // This is mandatory since we call functions from the Oodle library
+            if dict.as_ptr() as usize + dict_len != decompressed.as_mut_ptr() as usize {
+                return Err(Error::InvalidDictionaryBase(concatcp!(
+                    "dictionary base must be contiguous with decompressed"
+                )));
+            }
+
+            // If decode_start_offset is not a multiple of BLOCK_LEN, it's an almost guaranteed failure.
+            if dict_len % BLOCK_LEN != 0 {
+                return Err(Error::InvalidDictionaryLength(concatcp!(
+                    "dictionary length must be a multiple of ",
+                    BLOCK_LEN
+                )));
+            }
+
+            (dict, dict_len)
+        }
+        None => (decompressed, 0),
     };
 
-    // If the dictionary length is not a multiple of BLOCK_LEN, it's an almost guaranteed failure.
-    // This is a consequence of how the Oodle library handles decompress_pos. It starts at
-    if dictionary_len % BLOCK_LEN != 0 {
-        return Err(Error::InvalidDictionaryLength(concatcp!(
-            "dictionary length must be a multiple of ",
-            BLOCK_LEN
-        )));
+    let decode_start_offset = dictionary_len;
+
+    let mut raw_decoded = decode_start_offset;
+    let raw_len = decode_start_offset + decompressed_len;
+    let mut compressed_used = 0;
+
+    if dictionary_len == 0 {
+        dictionary_len = raw_len;
     }
 
-    // Ensure dictionary_base is contiguous with decompressed
-    // This is mandatory since we call functions from the Oodle library
-    if dictionary_base as usize + dictionary_len != decompressed.as_mut_ptr() as usize {
-        return Err(Error::InvalidDictionaryBase(concatcp!(
-            "dictionary base must be contiguous with decompressed"
-        )));
+    let compressor = get_all_chunks_compressor(&compressed, raw_len)?;
+
+    let mut decoder = Decoder::new(compressor, raw_len, decode_start_offset);
+
+    while raw_decoded < raw_len {
+        if compressed_len <= compressed_used {
+            panic!("compressed data is too short");
+        }
+
+        let mut out = OodleLZ_DecodeSome_Out {
+            decodedCount: 0,
+            compBufUsed: 0,
+            curQuantumRawLen: 0,
+            curQuantumCompLen: 0,
+        };
+
+        let result = unsafe {
+            OodleLZDecoder_DecodeSome(
+                decoder.decoder_ptr as *mut _,
+                &mut out,
+                dictionary_base.as_mut_ptr() as *mut _,
+                raw_decoded as isize,
+                dictionary_len as isize,
+                (dictionary_len - raw_decoded) as isize,
+                (compressed.as_ptr() as usize + compressed_used) as *const _,
+                (compressed_len - compressed_used) as isize,
+                OodleLZ_FuzzSafe::OodleLZ_FuzzSafe_Yes,
+                if check_crc {
+                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_Yes
+                } else {
+                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_No
+                },
+                OodleLZ_Verbosity::OodleLZ_Verbosity_None,
+                OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
+            )
+        };
+
+        // result is bool
+        if result == 0 {
+            return Err(Error::DecompressionFailed);
+        }
+
+        if out.decodedCount == 0 {
+            return Err(Error::DecompressionFailed);
+        }
+
+        raw_decoded += out.decodedCount as usize;
+        compressed_used += out.compBufUsed as usize;
     }
 
-    let n = unsafe {
-        bindings::oo2_OodleLZ_Decompress(
+    if raw_decoded != raw_len {
+        return Err(Error::DecompressionFailed);
+    }
+
+    Ok(raw_decoded)
+}
+
+struct Decoder {
+    // memory: Vec<u8>,
+    decoder_ptr: *mut OodleLZDecoder,
+}
+
+impl Decoder {
+    fn new(compressor: Compressor, raw_len: usize, decode_start_offset: usize) -> Self {
+        let decoder_size = size_of::<OodleLZDecoder>() + size_of::<u64>();
+        let scratch_size = compressor_scratch_memory_size(compressor, raw_len);
+
+        let memory_size = decoder_size + scratch_size;
+        // // let mut memory = {
+        // //     #[repr(align(16))]
+        // //     struct AlignedU8 {
+        // //         __: u8,
+        // //     }
+
+        // //     let aligned_memory_size = memory_size / size_of::<AlignedU8>();
+        // //     let mut aligned_memory = Vec::with_capacity(aligned_memory_size);
+
+        // //     let aligned_memory_ptr = aligned_memory.as_mut_ptr();
+        // //     let aligned_memory_len = aligned_memory.len();
+        // //     let aligned_memory_cap = aligned_memory.capacity();
+
+        // //     mem::forget(aligned_memory);
+
+        // //     unsafe {
+        // //         Vec::from_raw_parts(
+        // //             aligned_memory_ptr as *mut u8,
+        // //             aligned_memory_len * size_of::<AlignedU8>(),
+        // //             aligned_memory_cap * size_of::<AlignedU8>(),
+        // //         )
+        // //     }
+        // // };
+        // let mut memory = vec![0u8; memory_size];
+        // let memory_ptr = memory.as_mut_ptr();
+
+        // unsafe {
+        //     ptr::write(
+        //         memory_ptr as *mut OodleLZDecoder,
+        //         OodleLZDecoder {
+        //             decPos: decode_start_offset as i64,
+        //             decLen: raw_len as i64,
+        //             gotHeaderPos: -1,
+        //             resetPos: 0,
+        //             check: 0xABADF00DC0CAC01A,
+        //             callsWithoutProgress: 0,
+        //             ownsmem: true as i32,
+        //             header: LZBlockHeader {
+        //                 version: 0,
+        //                 decodeType: 0,
+        //                 offsetShift: 0,
+        //                 chunkIsMemcpy: 0,
+        //                 chunkIsReset: 0,
+        //                 chunkHasQuantumCRCs: 0,
+        //             },
+        //             decoderSize: decoder_size as i32,
+        //             memorySize: memory_size as i32,
+        //             scratch: (memory_ptr as usize + 1) as *mut _,
+        //             scratch_size: scratch_size as isize,
+        //             legacy: [0u8; 64],
+        //         },
+        //     );
+        // }
+
+        // Self { memory }
+
+        let decoder_ptr = unsafe {
+            OodleLZDecoder_Create_Sub(
+                compressor.into(),
+                raw_len as i64,
+                ptr::null_mut(),
+                0,
+                memory_size as i32,
+                decoder_size as i32,
+            )
+        };
+
+        unsafe {
+            (*decoder_ptr).decPos = decode_start_offset as i64;
+        }
+
+        Self { decoder_ptr }
+    }
+}
+
+impl Drop for Decoder {
+    fn drop(&mut self) {
+        unsafe {
+            OodleLZDecoder_Destroy(self.decoder_ptr);
+        }
+    }
+}
+
+fn get_all_chunks_compressor(compressed: &[u8], raw_len: usize) -> Result<Compressor> {
+    let compressed_len = compressed.len();
+
+    let compressor = unsafe {
+        OodleLZ_GetAllChunksCompressor(
             compressed.as_ptr() as *const _,
             compressed_len as isize,
-            decompressed.as_mut_ptr() as *mut _,
-            decompressed_len as isize,
-            // deprecated (always enabled)
-            bindings::oo2_OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes,
-            if check_crc {
-                bindings::oo2_OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes
-            } else {
-                bindings::oo2_OodleLZ_CheckCRC_OodleLZ_CheckCRC_No
-            },
-            bindings::oo2_OodleLZ_Verbosity_OodleLZ_Verbosity_None,
-            dictionary_base as *mut _,
-            dictionary_len as isize,
-            None,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            0,
-            // always true for new lz compressors
-            bindings::oo2_OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
+            raw_len as isize,
         )
     };
 
-    // If oo2_OodleLZ_Compress returns 0 (OODLELZ_FAILED)
-    // it means it detected corruption
-    if n == 0 {
-        return Err(Error::DecompressionFailed);
-    } else if n < 0 {
-        // The result from `oo2_OodleLZ_Decompress` is non-negative.
-        unreachable!()
+    compressor.try_into()
+}
+
+#[inline]
+fn compressor_scratch_memory_size(compressor: Compressor, raw_len: usize) -> usize {
+    let min_scratch = raw_len.min(CHUNK_LEN);
+    let mut max_scratch = min_scratch * 2 + SCRATCH_ALIGNMENT_PAD;
+
+    if compressor == Compressor::Kraken
+        || compressor == Compressor::Leviathan
+        || compressor == Compressor::Hydra
+    {
+        max_scratch += min_scratch;
     }
 
-    Ok(n as usize)
+    max_scratch += ARRAY_INTERNAL_MAX_SCRATCH;
+    max_scratch += MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ;
+
+    max_scratch
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compressor_scratch_memory_size() {
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Kraken, CHUNK_LEN),
+            446496
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Leviathan, CHUNK_LEN),
+            446496
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Mermaid, CHUNK_LEN),
+            315424
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Selkie, CHUNK_LEN),
+            315424
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Hydra, CHUNK_LEN),
+            446496
+        );
+    }
 }
