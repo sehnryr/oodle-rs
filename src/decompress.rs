@@ -86,7 +86,7 @@ pub fn decompress(
 
     let compressor = get_all_chunks_compressor(&compressed, raw_len)?;
 
-    let decoder = Decoder::new(compressor, raw_len, decode_start_offset);
+    let mut decoder = Decoder::new(compressor, raw_len, decode_start_offset);
 
     while raw_decoded < raw_len {
         if compressed_len <= compressed_used {
@@ -102,7 +102,7 @@ pub fn decompress(
 
         let result = unsafe {
             OodleLZDecoder_DecodeSome(
-                decoder.decoder_ptr as *mut _,
+                ptr::addr_of_mut!(decoder.inner) as *mut _,
                 &mut out,
                 dictionary_base.as_mut_ptr() as *mut _,
                 raw_decoded as isize,
@@ -142,8 +142,8 @@ pub fn decompress(
 }
 
 struct Decoder {
-    _memory: Vec<u8>,
-    decoder_ptr: *mut OodleLZDecoder,
+    inner: OodleLZDecoder,
+    _scratch: Vec<u8>,
 }
 
 impl Decoder {
@@ -152,42 +152,35 @@ impl Decoder {
         let scratch_size = compressor_scratch_memory_size(compressor, raw_len);
 
         let memory_size = decoder_size + scratch_size;
-        let mut memory = vec![0u8; memory_size];
-        let memory_ptr = memory.as_mut_ptr();
 
-        let decoder_ptr = memory_ptr as *mut OodleLZDecoder;
+        let mut scratch = vec![0u8; scratch_size];
 
-        unsafe {
-            ptr::write(
-                decoder_ptr,
-                OodleLZDecoder {
-                    decPos: decode_start_offset as i64,
-                    decLen: raw_len as i64,
-                    gotHeaderPos: -1,
-                    resetPos: 0,
-                    check: 0,
-                    callsWithoutProgress: 0,
-                    ownsmem: true as i32,
-                    header: LZBlockHeader {
-                        version: 0,
-                        decodeType: 0,
-                        offsetShift: 0,
-                        chunkIsMemcpy: 0,
-                        chunkIsReset: 0,
-                        chunkHasQuantumCRCs: 0,
-                    },
-                    decoderSize: decoder_size as i32,
-                    memorySize: memory_size as i32,
-                    scratch: decoder_ptr.add(1) as *mut _,
-                    scratch_size: scratch_size as isize,
-                    legacy: [0u8; 64],
-                },
-            );
-        }
+        let decoder = OodleLZDecoder {
+            decPos: decode_start_offset as i64,
+            decLen: raw_len as i64,
+            gotHeaderPos: -1,
+            resetPos: 0,
+            check: 0,
+            callsWithoutProgress: 0,
+            ownsmem: true as i32,
+            header: LZBlockHeader {
+                version: 0,
+                decodeType: 0,
+                offsetShift: 0,
+                chunkIsMemcpy: 0,
+                chunkIsReset: 0,
+                chunkHasQuantumCRCs: 0,
+            },
+            decoderSize: decoder_size as i32,
+            memorySize: memory_size as i32,
+            scratch: scratch.as_mut_ptr() as *mut _,
+            scratch_size: scratch_size as isize,
+            legacy: [0u8; 64],
+        };
 
         Self {
-            _memory: memory,
-            decoder_ptr,
+            inner: decoder,
+            _scratch: scratch,
         }
     }
 }
