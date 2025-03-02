@@ -1,2 +1,5 @@
 /src/bindings.rs
 /target
+
+# C++ LSP configuration
+.clangd
