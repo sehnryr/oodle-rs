@@ -10,6 +10,7 @@
 mod bindings;
 
 mod compress;
+mod decoder;
 mod decompress;
 pub mod error;
 mod model;
