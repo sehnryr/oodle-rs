@@ -1,5 +1,6 @@
 //! Kraken, Mermaid, Selkie, Leviathan compression.
 
+#![warn(unsafe_code)]
 #![deny(missing_docs)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
