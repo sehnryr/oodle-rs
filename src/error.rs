@@ -41,8 +41,8 @@ pub enum Error {
     InvalidCompressedData(&'static str),
 
     /// Invalid chunk size.
-    #[error("Invalid chunk size")]
-    InvalidChunkSize,
+    #[error("Invalid chunk size: {0}")]
+    InvalidChunkSize(usize),
 
     /// Invalid header.
     #[error("Invalid header")]
@@ -51,4 +51,12 @@ pub enum Error {
     /// Unsupported chunk version.
     #[error("Unsupported chunk version: {0}")]
     UnsupportedChunkVersion(u8),
+
+    /// Invalid decompressed step.
+    #[error("Invalid decompressed step: {0}")]
+    InvalidDecompressedStep(usize),
+
+    /// Invalid quantum special.
+    #[error("Invalid quantum special: {0}")]
+    InvalidQuantumSpecial(u32),
 }

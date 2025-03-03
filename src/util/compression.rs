@@ -1,6 +1,5 @@
-use crate::bindings::root::oo2::*;
-use crate::block_header::BlockHeader;
 use crate::error::{Error, Result};
+use crate::header::{BlockHeader, QuantumHeader};
 use crate::model::Compressor;
 use crate::{
     ARRAY_INTERNAL_MAX_SCRATCH, BLOCK_HEADER_BYTES_MAX, BLOCK_LEN, CHUNK_HEADER_SIZE, CHUNK_LEN,
@@ -26,7 +25,7 @@ pub fn get_compressed_buffer_size_hint(decompressed_len: usize) -> usize {
 }
 
 fn get_chunk_compressor(compressed_chunk: &[u8]) -> Result<Compressor> {
-    let block_header = BlockHeader::try_from_block(compressed_chunk)?;
+    let (block_header, _) = BlockHeader::try_from_block(compressed_chunk)?;
     Ok(block_header.compressor)
 }
 
@@ -52,7 +51,7 @@ pub(crate) fn get_all_chunks_compressor(
         let compressed_step = get_compressed_step_for_decompressed_step(
             &compressed[compressed_pos..],
             decompressed_step,
-        );
+        )?;
 
         if compressed_step == 0 || compressed_step > available_bytes {
             return Err(Error::InvalidCompressedData("invalid chunk compressor"));
@@ -84,17 +83,43 @@ pub(crate) fn get_all_chunks_compressor(
 fn get_compressed_step_for_decompressed_step(
     compressed_chunk: &[u8],
     decompressed_step: usize,
-) -> usize {
-    unsafe {
-        OodleLZ_GetCompressedStepForRawStep(
-            compressed_chunk.as_ptr() as *const _,
-            compressed_chunk.len() as isize,
-            0,
-            decompressed_step as isize,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-        ) as usize // TODO: handle < 0
+) -> Result<usize> {
+    let mut compressed_pos = 0;
+    let mut decompressed_pos = 0;
+
+    while decompressed_pos < decompressed_step {
+        let next_block_pos = decompressed_step.min(BLOCK_LEN);
+        let chunk_size = next_block_pos - decompressed_pos;
+
+        if decompressed_pos % BLOCK_LEN != 0 {
+            return Err(Error::InvalidDecompressedStep(decompressed_step));
+        }
+
+        let (block_header, offset) =
+            BlockHeader::try_from_block(&compressed_chunk[compressed_pos..])?;
+        compressed_pos += offset;
+
+        if block_header.is_memcpy {
+            if compressed_chunk.len() - compressed_pos < chunk_size {
+                return Ok(compressed_pos);
+            }
+
+            decompressed_pos += chunk_size;
+            compressed_pos += chunk_size;
+        } else {
+            let (quantum_header, offset) = QuantumHeader::try_from(
+                &compressed_chunk[compressed_pos..],
+                block_header.has_quantum_crcs,
+                chunk_size,
+            )?;
+
+            compressed_pos += offset;
+            compressed_pos += quantum_header.compressed_len;
+            decompressed_pos += chunk_size;
+        }
     }
+
+    Ok(compressed_pos)
 }
 
 #[inline]

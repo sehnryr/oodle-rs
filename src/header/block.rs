@@ -2,6 +2,7 @@ use crate::BLOCK_HEADER_BYTES_MAX;
 use crate::error::{Error, Result};
 use crate::model::Compressor;
 
+#[derive(Debug)]
 pub struct BlockHeader {
     pub(crate) compressor: Compressor,
     pub(crate) is_memcpy: bool,
@@ -10,9 +11,9 @@ pub struct BlockHeader {
 }
 
 impl BlockHeader {
-    pub fn try_from_block(block: &[u8]) -> Result<Self> {
+    pub fn try_from_block(block: &[u8]) -> Result<(Self, usize)> {
         if block.len() < BLOCK_HEADER_BYTES_MAX {
-            return Err(Error::InvalidChunkSize);
+            return Err(Error::InvalidChunkSize(block.len()));
         }
 
         let version = 4 + ((block[0] >> 4) & 0b11);
@@ -36,11 +37,13 @@ impl BlockHeader {
             _ => return Err(Error::InvalidCompressor),
         };
 
-        Ok(Self {
+        let header = Self {
             compressor,
             is_memcpy,
             is_reset,
             has_quantum_crcs,
-        })
+        };
+
+        Ok((header, 2))
     }
 }

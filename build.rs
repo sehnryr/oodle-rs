@@ -66,11 +66,9 @@ fn main() {
         .rustified_enum(".*")
         .allowlist_recursively(true)
         .allowlist_function("oo2::OodleLZ_Compress")
-        .allowlist_function("oo2::OodleLZ_GetAllChunksCompressor")
-        .allowlist_function("oo2::OodleLZ_GetFirstChunkCompressor")
-        .allowlist_function("oo2::OodleLZ_GetCompressedStepForRawStep")
         .allowlist_function("oo2::OodleLZDecoder_DecodeSome")
-        .allowlist_type("oo2::_OodleLZDecoder")
+        .allowlist_type("oo2::OodleLZDecoder")
+        .allowlist_type("oo2::LZQuantumHeader")
         // Define Oodle usage
         .clang_arg("-DOODLE_BUILDING_LIB")
         // Force C++ mode
