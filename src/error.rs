@@ -31,4 +31,8 @@ pub enum Error {
     /// Invalid compressor.
     #[error("Invalid compressor")]
     InvalidCompressor,
+
+    /// Invalid input data.
+    #[error("Invalid input data: {0}")]
+    InvalidInput(&'static str),
 }

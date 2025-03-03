@@ -1,5 +1,5 @@
 use std::mem::size_of;
-use std::ptr;
+use std::{ptr, slice};
 
 use const_format::concatcp;
 
@@ -43,13 +43,10 @@ pub fn decompress(
         return Err(Error::EmptyBuffer("decompressed buffer is empty"));
     }
 
-    let compressed_len = compressed.len();
-    let decompressed_len = decompressed.len();
-
     let check_crc = check_crc.unwrap_or(false);
 
     // If dictionary_base is not provided, use decompressed as the dictionary
-    let (dictionary_base, mut dictionary_len) = match dictionary_base {
+    let (decompressed, mut dictionary_len) = match dictionary_base {
         Some(dict) => {
             let dict_len = dict.len();
 
@@ -69,76 +66,47 @@ pub fn decompress(
                 )));
             }
 
-            (dict, dict_len)
+            let combined = unsafe {
+                slice::from_raw_parts_mut(dict.as_mut_ptr(), dict_len + decompressed.len())
+            };
+
+            (combined, dict_len)
         }
         None => (decompressed, 0),
     };
 
     let decode_start_offset = dictionary_len;
 
-    let mut raw_decoded = decode_start_offset;
-    let raw_len = decode_start_offset + decompressed_len;
-    let mut compressed_used = 0;
+    let mut decompressed_pos = decode_start_offset;
+    let mut compressed_pos = 0;
 
     if dictionary_len == 0 {
-        dictionary_len = raw_len;
+        dictionary_len = decompressed.len();
     }
 
-    let compressor = get_all_chunks_compressor(&compressed, raw_len)?;
+    let compressor = get_all_chunks_compressor(&compressed, decompressed.len())?;
 
-    let mut decoder = Decoder::new(compressor, raw_len, decode_start_offset);
+    let mut decoder = Decoder::new(compressor, decompressed.len(), decode_start_offset);
 
-    while raw_decoded < raw_len {
-        if compressed_len <= compressed_used {
-            panic!("compressed data is too short");
-        }
+    while decompressed_pos < decompressed.len() {
+        let (bytes_decoded, bytes_read) = decoder.decode_some(
+            compressed,
+            compressed_pos,
+            decompressed,
+            decompressed_pos,
+            dictionary_len,
+            check_crc,
+        )?;
 
-        let mut out = OodleLZ_DecodeSome_Out {
-            decodedCount: 0,
-            compBufUsed: 0,
-            curQuantumRawLen: 0,
-            curQuantumCompLen: 0,
-        };
-
-        let result = unsafe {
-            OodleLZDecoder_DecodeSome(
-                ptr::addr_of_mut!(decoder.inner) as *mut _,
-                &mut out,
-                dictionary_base.as_mut_ptr() as *mut _,
-                raw_decoded as isize,
-                dictionary_len as isize,
-                (dictionary_len - raw_decoded) as isize,
-                (compressed.as_ptr() as usize + compressed_used) as *const _,
-                (compressed_len - compressed_used) as isize,
-                OodleLZ_FuzzSafe::OodleLZ_FuzzSafe_Yes,
-                if check_crc {
-                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_Yes
-                } else {
-                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_No
-                },
-                OodleLZ_Verbosity::OodleLZ_Verbosity_None,
-                OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
-            )
-        };
-
-        // result is bool
-        if result == 0 {
-            return Err(Error::DecompressionFailed);
-        }
-
-        if out.decodedCount == 0 {
-            return Err(Error::DecompressionFailed);
-        }
-
-        raw_decoded += out.decodedCount as usize;
-        compressed_used += out.compBufUsed as usize;
+        decompressed_pos += bytes_decoded;
+        compressed_pos += bytes_read;
     }
 
-    if raw_decoded != raw_len {
+    if decompressed_pos != decompressed.len() {
         return Err(Error::DecompressionFailed);
     }
 
-    Ok(raw_decoded)
+    Ok(decompressed_pos)
 }
 
 struct Decoder {
@@ -182,6 +150,59 @@ impl Decoder {
             inner: decoder,
             _scratch: scratch,
         }
+    }
+
+    fn decode_some(
+        &mut self,
+        compressed: &[u8],
+        compressed_pos: usize,
+        decompressed: &mut [u8],
+        decompressed_pos: usize,
+        dictionary_len: usize,
+        check_crc: bool,
+    ) -> Result<(usize, usize)> {
+        if compressed.len() <= compressed_pos {
+            return Err(Error::InvalidInput("compressed data is too short"));
+        }
+
+        let mut out = OodleLZ_DecodeSome_Out {
+            decodedCount: 0,
+            compBufUsed: 0,
+            curQuantumRawLen: 0,
+            curQuantumCompLen: 0,
+        };
+
+        let result = unsafe {
+            OodleLZDecoder_DecodeSome(
+                ptr::addr_of_mut!(self.inner) as *mut _,
+                &mut out,
+                decompressed.as_mut_ptr() as *mut _,
+                decompressed_pos as isize,
+                dictionary_len as isize,
+                (dictionary_len - decompressed_pos) as isize,
+                compressed.as_ptr().add(compressed_pos) as *const _,
+                (compressed.len() - compressed_pos) as isize,
+                OodleLZ_FuzzSafe::OodleLZ_FuzzSafe_Yes,
+                if check_crc {
+                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_Yes
+                } else {
+                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_No
+                },
+                OodleLZ_Verbosity::OodleLZ_Verbosity_None,
+                OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
+            )
+        };
+
+        // result is bool
+        if result == 0 {
+            return Err(Error::DecompressionFailed);
+        }
+
+        if out.decodedCount == 0 {
+            return Err(Error::DecompressionFailed);
+        }
+
+        Ok((out.decodedCount as usize, out.compBufUsed as usize))
     }
 }
 
