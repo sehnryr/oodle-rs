@@ -9,6 +9,7 @@
 #[allow(unsafe_op_in_unsafe_fn)]
 mod bindings;
 
+mod block_header;
 mod compress;
 mod decoder;
 mod decompress;

@@ -70,7 +70,6 @@ fn main() {
         .allowlist_function("oo2::OodleLZ_GetFirstChunkCompressor")
         .allowlist_function("oo2::OodleLZ_GetCompressedStepForRawStep")
         .allowlist_function("oo2::OodleLZDecoder_DecodeSome")
-        .allowlist_function("oo2::LZBlockHeader_Get")
         .allowlist_type("oo2::_OodleLZDecoder")
         // Define Oodle usage
         .clang_arg("-DOODLE_BUILDING_LIB")

@@ -47,4 +47,8 @@ pub enum Error {
     /// Invalid header.
     #[error("Invalid header")]
     InvalidHeader,
+
+    /// Unsupported chunk version.
+    #[error("Unsupported chunk version: {0}")]
+    UnsupportedChunkVersion(u8),
 }

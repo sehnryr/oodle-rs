@@ -1,4 +1,5 @@
 use crate::bindings::root::oo2::*;
+use crate::block_header::BlockHeader;
 use crate::error::{Error, Result};
 use crate::model::Compressor;
 use crate::{
@@ -25,36 +26,8 @@ pub fn get_compressed_buffer_size_hint(decompressed_len: usize) -> usize {
 }
 
 fn get_chunk_compressor(compressed_chunk: &[u8]) -> Result<Compressor> {
-    if compressed_chunk.len() < BLOCK_HEADER_BYTES_MAX {
-        return Err(Error::InvalidChunkSize);
-    }
-
-    let mut header = LZBlockHeader {
-        version: 0,
-        decodeType: 0,
-        offsetShift: 0,
-        chunkIsMemcpy: 0,
-        chunkIsReset: 0,
-        chunkHasQuantumCRCs: 0,
-    };
-
-    let compressed_chunk_ptr =
-        unsafe { LZBlockHeader_Get(std::ptr::addr_of_mut!(header), compressed_chunk.as_ptr()) };
-
-    if compressed_chunk_ptr.is_null() {
-        return Err(Error::InvalidHeader);
-    }
-
-    let compressor = match header.decodeType {
-        6 => Compressor::Kraken,
-        10 => Compressor::Mermaid,
-        12 => Compressor::Leviathan,
-        // Selkie ?
-        // Hydra ?
-        _ => return Err(Error::InvalidCompressor),
-    };
-
-    Ok(compressor)
+    let block_header = BlockHeader::try_from_block(compressed_chunk)?;
+    Ok(block_header.compressor)
 }
 
 pub(crate) fn get_all_chunks_compressor(
