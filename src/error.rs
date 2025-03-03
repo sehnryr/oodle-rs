@@ -39,4 +39,12 @@ pub enum Error {
     /// Invalid compressed data.
     #[error("Invalid compressed data: {0}")]
     InvalidCompressedData(&'static str),
+
+    /// Invalid chunk size.
+    #[error("Invalid chunk size")]
+    InvalidChunkSize,
+
+    /// Invalid header.
+    #[error("Invalid header")]
+    InvalidHeader,
 }

@@ -2,8 +2,8 @@ use crate::bindings::root::oo2::*;
 use crate::error::{Error, Result};
 use crate::model::Compressor;
 use crate::{
-    ARRAY_INTERNAL_MAX_SCRATCH, BLOCK_LEN, CHUNK_LEN, MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ,
-    SCRATCH_ALIGNMENT_PAD,
+    ARRAY_INTERNAL_MAX_SCRATCH, BLOCK_HEADER_BYTES_MAX, BLOCK_LEN, CHUNK_LEN,
+    MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ, SCRATCH_ALIGNMENT_PAD,
 };
 
 pub struct Decoder<'a> {
@@ -133,15 +133,36 @@ impl<'a> Decoder<'a> {
 }
 
 fn get_chunk_compressor(compressed_chunk: &[u8]) -> Result<Compressor> {
-    let compressor = unsafe {
-        OodleLZ_GetFirstChunkCompressor(
-            compressed_chunk.as_ptr() as *const _,
-            compressed_chunk.len() as isize,
-            std::ptr::null_mut(),
-        )
+    if compressed_chunk.len() < BLOCK_HEADER_BYTES_MAX {
+        return Err(Error::InvalidChunkSize);
+    }
+
+    let mut header = LZBlockHeader {
+        version: 0,
+        decodeType: 0,
+        offsetShift: 0,
+        chunkIsMemcpy: 0,
+        chunkIsReset: 0,
+        chunkHasQuantumCRCs: 0,
     };
 
-    compressor.try_into()
+    let compressed_chunk_ptr =
+        unsafe { LZBlockHeader_Get(std::ptr::addr_of_mut!(header), compressed_chunk.as_ptr()) };
+
+    if compressed_chunk_ptr.is_null() {
+        return Err(Error::InvalidHeader);
+    }
+
+    let compressor = match header.decodeType {
+        6 => Compressor::Kraken,
+        10 => Compressor::Mermaid,
+        12 => Compressor::Leviathan,
+        // Selkie ?
+        // Hydra ?
+        _ => return Err(Error::InvalidCompressor),
+    };
+
+    Ok(compressor)
 }
 
 fn get_all_chunks_compressor(compressed: &[u8], decompressed_len: usize) -> Result<Compressor> {
