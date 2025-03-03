@@ -67,43 +67,71 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_decompress() {
-        let compressed = std::fs::read("test-data/kraken/xml.kraken").unwrap();
+    macro_rules! test_decompress {
+        ($test_name:ident, $compressor:expr, $test:expr) => {
+            #[test]
+            fn $test_name () {
+                let compressed = std::fs::read(format!("test-data/{}/{}.{}", $compressor, $test, $compressor)).unwrap();
 
-        let (compressed, decompressed_len) = if compressed[4] == 0x8C {
-            (
-                &compressed[4..],
-                u32::from_le_bytes(array_range!(compressed, 0; .. 4)) as usize,
-            )
-        } else {
-            (
-                &compressed[8..],
-                u64::from_le_bytes(array_range!(compressed, 0; .. 8)) as usize,
-            )
+                let (compressed, decompressed_len) = if compressed[4] == 0x8C {
+                    (
+                        &compressed[4..],
+                        u32::from_le_bytes(array_range!(compressed, 0; .. 4)) as usize,
+                    )
+                } else {
+                    (
+                        &compressed[8..],
+                        u64::from_le_bytes(array_range!(compressed, 0; .. 8)) as usize,
+                    )
+                };
+
+                let mut decompressed = vec![0; decompressed_len];
+
+                let result =
+                crate::decompress::decompress(&compressed, &mut decompressed, None, None).expect("Decompression failed");
+
+                assert!(
+                    result >= decompressed_len,
+                    "Decompression result is less than expected length"
+                );
+
+                let expected_decompressed = std::fs::read(format!("test-data/raw/{}", $test)).unwrap();
+
+                assert_eq!(
+                    expected_decompressed.len(),
+                    decompressed.len(),
+                    "Decompression did not match expected result",
+                );
+
+                assert_eq!(
+                    expected_decompressed, decompressed,
+                    "Decompression did not match expected result",
+                );
+            }
         };
-
-        let mut decompressed = vec![0; decompressed_len];
-
-        let result =
-            decompress(&compressed, &mut decompressed, None, None).expect("Decompression failed");
-
-        assert!(
-            result >= decompressed_len,
-            "Decompression result is less than expected length"
-        );
-
-        let expected_decompressed = std::fs::read("test-data/raw/xml").unwrap();
-
-        assert_eq!(
-            expected_decompressed.len(),
-            decompressed.len(),
-            "Decompression did not match expected result",
-        );
-
-        assert_eq!(
-            expected_decompressed, decompressed,
-            "Decompression did not match expected result",
-        );
     }
+
+    macro_rules! test_suite_decompress {
+        ($compressor:ident) => {
+            mod $compressor {
+                test_decompress!(test_decompress_dickens, stringify!($compressor), "dickens");
+                test_decompress!(test_decompress_mozilla, stringify!($compressor), "mozilla");
+                test_decompress!(test_decompress_mr, stringify!($compressor), "mr");
+                test_decompress!(test_decompress_nci, stringify!($compressor), "nci");
+                test_decompress!(test_decompress_ooffice, stringify!($compressor), "ooffice");
+                test_decompress!(test_decompress_osdb, stringify!($compressor), "osdb");
+                test_decompress!(test_decompress_reymont, stringify!($compressor), "reymont");
+                test_decompress!(test_decompress_samba, stringify!($compressor), "samba");
+                test_decompress!(test_decompress_sao, stringify!($compressor), "sao");
+                test_decompress!(test_decompress_webster, stringify!($compressor), "webster");
+                test_decompress!(test_decompress_xray, stringify!($compressor), "x-ray");
+                test_decompress!(test_decompress_xml, stringify!($compressor), "xml");
+            }
+        };
+    }
+
+    test_suite_decompress!(kraken);
+    test_suite_decompress!(leviathan);
+    test_suite_decompress!(mermaid);
+    test_suite_decompress!(selkie);
 }
