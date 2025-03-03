@@ -1,4 +1,10 @@
-use crate::{BLOCK_HEADER_BYTES_MAX, BLOCK_LEN, CHUNK_HEADER_SIZE, QUANTUM_HEADER_MAX_SIZE};
+use crate::bindings::root::oo2::*;
+use crate::error::{Error, Result};
+use crate::model::Compressor;
+use crate::{
+    ARRAY_INTERNAL_MAX_SCRATCH, BLOCK_HEADER_BYTES_MAX, BLOCK_LEN, CHUNK_HEADER_SIZE, CHUNK_LEN,
+    MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ, QUANTUM_HEADER_MAX_SIZE, SCRATCH_ALIGNMENT_PAD,
+};
 
 /// Get the compressed buffer size hint.
 ///
@@ -16,4 +22,154 @@ pub fn get_compressed_buffer_size_hint(decompressed_len: usize) -> usize {
     let num_seek_chunks = (decompressed_len + BLOCK_LEN - 1) / BLOCK_LEN;
 
     decompressed_len + num_seek_chunks * padding_per_seek_chunk
+}
+
+fn get_chunk_compressor(compressed_chunk: &[u8]) -> Result<Compressor> {
+    if compressed_chunk.len() < BLOCK_HEADER_BYTES_MAX {
+        return Err(Error::InvalidChunkSize);
+    }
+
+    let mut header = LZBlockHeader {
+        version: 0,
+        decodeType: 0,
+        offsetShift: 0,
+        chunkIsMemcpy: 0,
+        chunkIsReset: 0,
+        chunkHasQuantumCRCs: 0,
+    };
+
+    let compressed_chunk_ptr =
+        unsafe { LZBlockHeader_Get(std::ptr::addr_of_mut!(header), compressed_chunk.as_ptr()) };
+
+    if compressed_chunk_ptr.is_null() {
+        return Err(Error::InvalidHeader);
+    }
+
+    let compressor = match header.decodeType {
+        6 => Compressor::Kraken,
+        10 => Compressor::Mermaid,
+        12 => Compressor::Leviathan,
+        // Selkie ?
+        // Hydra ?
+        _ => return Err(Error::InvalidCompressor),
+    };
+
+    Ok(compressor)
+}
+
+pub(crate) fn get_all_chunks_compressor(
+    compressed: &[u8],
+    decompressed_len: usize,
+) -> Result<Compressor> {
+    let mut compressor = get_chunk_compressor(compressed)?;
+
+    // > Optimize common case:
+    // > Compressor can only change at BLOCK granularity
+    // > so anything smaller will just have the same compressor
+    if decompressed_len <= BLOCK_LEN {
+        return Ok(compressor);
+    }
+
+    let mut compressed_pos = 0;
+    let mut available_bytes = compressed.len();
+    let mut remaining_bytes = decompressed_len;
+
+    while available_bytes != 0 {
+        let decompressed_step = remaining_bytes.min(BLOCK_LEN);
+        let compressed_step = get_compressed_step_for_decompressed_step(
+            &compressed[compressed_pos..],
+            decompressed_step,
+        );
+
+        if compressed_step == 0 || compressed_step > available_bytes {
+            return Err(Error::InvalidCompressedData("invalid chunk compressor"));
+        }
+
+        if compressed_step == available_bytes {
+            break;
+        }
+
+        compressed_pos += compressed_step;
+        available_bytes -= compressed_step;
+        remaining_bytes -= decompressed_step;
+
+        if remaining_bytes == 0 {
+            break;
+        }
+
+        let current_compressor = get_chunk_compressor(&compressed[compressed_pos..])?;
+
+        // Mix of compressor types
+        if compressor != current_compressor {
+            compressor = Compressor::Hydra;
+        }
+    }
+
+    Ok(compressor)
+}
+
+fn get_compressed_step_for_decompressed_step(
+    compressed_chunk: &[u8],
+    decompressed_step: usize,
+) -> usize {
+    unsafe {
+        OodleLZ_GetCompressedStepForRawStep(
+            compressed_chunk.as_ptr() as *const _,
+            compressed_chunk.len() as isize,
+            0,
+            decompressed_step as isize,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        ) as usize // TODO: handle < 0
+    }
+}
+
+#[inline]
+pub(crate) fn compressor_scratch_memory_size(
+    compressor: Compressor,
+    decompressed_len: usize,
+) -> usize {
+    let min_scratch = decompressed_len.min(CHUNK_LEN);
+    let mut max_scratch = min_scratch * 2 + SCRATCH_ALIGNMENT_PAD;
+
+    if compressor == Compressor::Kraken
+        || compressor == Compressor::Leviathan
+        || compressor == Compressor::Hydra
+    {
+        max_scratch += min_scratch;
+    }
+
+    max_scratch += ARRAY_INTERNAL_MAX_SCRATCH;
+    max_scratch += MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ;
+
+    max_scratch
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compressor_scratch_memory_size() {
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Kraken, CHUNK_LEN),
+            446496
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Leviathan, CHUNK_LEN),
+            446496
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Mermaid, CHUNK_LEN),
+            315424
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Selkie, CHUNK_LEN),
+            315424
+        );
+        assert_eq!(
+            compressor_scratch_memory_size(Compressor::Hydra, CHUNK_LEN),
+            446496
+        );
+    }
 }
