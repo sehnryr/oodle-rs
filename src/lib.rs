@@ -6,6 +6,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+#[allow(unsafe_code)]
 #[allow(dead_code)]
 #[allow(unsafe_op_in_unsafe_fn)]
 mod bindings;
