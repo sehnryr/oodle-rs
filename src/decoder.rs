@@ -2,7 +2,7 @@ use crate::bindings::root::oo2::*;
 use crate::error::{Error, Result};
 use crate::model::Compressor;
 use crate::{
-    ARRAY_INTERNAL_MAX_SCRATCH, CHUNK_LEN, MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ,
+    ARRAY_INTERNAL_MAX_SCRATCH, BLOCK_LEN, CHUNK_LEN, MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ,
     SCRATCH_ALIGNMENT_PAD,
 };
 
@@ -132,18 +132,80 @@ impl<'a> Decoder<'a> {
     }
 }
 
-fn get_all_chunks_compressor(compressed: &[u8], decompressed_len: usize) -> Result<Compressor> {
-    let compressed_len = compressed.len();
-
+fn get_chunk_compressor(compressed_chunk: &[u8]) -> Result<Compressor> {
     let compressor = unsafe {
-        OodleLZ_GetAllChunksCompressor(
-            compressed.as_ptr() as *const _,
-            compressed_len as isize,
-            decompressed_len as isize,
+        OodleLZ_GetFirstChunkCompressor(
+            compressed_chunk.as_ptr() as *const _,
+            compressed_chunk.len() as isize,
+            std::ptr::null_mut(),
         )
     };
 
     compressor.try_into()
+}
+
+fn get_all_chunks_compressor(compressed: &[u8], decompressed_len: usize) -> Result<Compressor> {
+    let mut compressor = get_chunk_compressor(compressed)?;
+
+    // > Optimize common case:
+    // > Compressor can only change at BLOCK granularity
+    // > so anything smaller will just have the same compressor
+    if decompressed_len <= BLOCK_LEN {
+        return Ok(compressor);
+    }
+
+    let mut compressed_pos = 0;
+    let mut available_bytes = compressed.len();
+    let mut remaining_bytes = decompressed_len;
+
+    while available_bytes != 0 {
+        let decompressed_step = remaining_bytes.min(BLOCK_LEN);
+        let compressed_step = get_compressed_step_for_decompressed_step(
+            &compressed[compressed_pos..],
+            decompressed_step,
+        );
+
+        if compressed_step == 0 || compressed_step > available_bytes {
+            return Err(Error::InvalidCompressedData("invalid chunk compressor"));
+        }
+
+        if compressed_step == available_bytes {
+            break;
+        }
+
+        compressed_pos += compressed_step;
+        available_bytes -= compressed_step;
+        remaining_bytes -= decompressed_step;
+
+        if remaining_bytes == 0 {
+            break;
+        }
+
+        let current_compressor = get_chunk_compressor(&compressed[compressed_pos..])?;
+
+        // Mix of compressor types
+        if compressor != current_compressor {
+            compressor = Compressor::Hydra;
+        }
+    }
+
+    Ok(compressor)
+}
+
+fn get_compressed_step_for_decompressed_step(
+    compressed_chunk: &[u8],
+    decompressed_step: usize,
+) -> usize {
+    unsafe {
+        OodleLZ_GetCompressedStepForRawStep(
+            compressed_chunk.as_ptr() as *const _,
+            compressed_chunk.len() as isize,
+            0,
+            decompressed_step as isize,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        ) as usize // TODO: handle < 0
+    }
 }
 
 #[inline]

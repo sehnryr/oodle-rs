@@ -35,4 +35,8 @@ pub enum Error {
     /// Invalid input data.
     #[error("Invalid input data: {0}")]
     InvalidInput(&'static str),
+
+    /// Invalid compressed data.
+    #[error("Invalid compressed data: {0}")]
+    InvalidCompressedData(&'static str),
 }
