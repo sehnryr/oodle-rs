@@ -1,7 +1,10 @@
+use crate::BLOCK_LEN;
 use crate::bindings::root::oo2::*;
 use crate::error::{Error, Result};
+use crate::header::{BlockHeader, QuantumHeader};
 use crate::model::Compressor;
 use crate::util::compression::{compressor_scratch_memory_size, get_all_chunks_compressor};
+use crate::util::crc::compute_crc;
 
 pub struct Decoder<'a> {
     compressor: Compressor,
@@ -14,6 +17,9 @@ pub struct Decoder<'a> {
 
     dictionary_len: usize,
     check_crc: bool,
+
+    header: Option<BlockHeader>,
+    reset_pos: Option<usize>,
 }
 
 impl<'a> Decoder<'a> {
@@ -34,15 +40,14 @@ impl<'a> Decoder<'a> {
             decompressed_pos: decode_start_offset,
             dictionary_len,
             check_crc,
+            header: None,
+            reset_pos: None,
         })
     }
 
     pub fn decode(&mut self) -> Result<usize> {
         while self.decompressed_pos < self.decompressed.len() {
-            let (bytes_decoded, bytes_read) = self.decode_some()?;
-
-            self.decompressed_pos += bytes_decoded;
-            self.compressed_pos += bytes_read;
+            self.decode_some()?;
         }
 
         if self.decompressed_pos != self.decompressed.len() {
@@ -52,76 +57,278 @@ impl<'a> Decoder<'a> {
         Ok(self.decompressed_pos)
     }
 
-    fn decode_some(&mut self) -> Result<(usize, usize)> {
+    fn decode_some(&mut self) -> Result<()> {
         if self.compressed.len() <= self.compressed_pos {
             return Err(Error::InvalidInput("compressed data is too short"));
         }
 
-        let mut out = OodleLZ_DecodeSome_Out {
-            decodedCount: 0,
-            compBufUsed: 0,
-            curQuantumRawLen: 0,
-            curQuantumCompLen: 0,
-        };
+        let mut raw_bytes_to_go = self.dictionary_len - self.decompressed_pos;
+        let chunk_pos = self.decompressed_pos % BLOCK_LEN; // ?
+        let raw_len_left = self.decompressed.len() - self.decompressed_pos;
+
+        // Since `self.dictionary_len` is the same as `self.decompressed.len()` when the dictionary
+        // base is not provided, is there a difference between the two?
+        // Can we use `self.decompressed.len()` instead?
+
+        raw_bytes_to_go = raw_bytes_to_go.min(BLOCK_LEN - chunk_pos);
+        raw_bytes_to_go = raw_bytes_to_go.min(raw_len_left);
+
+        if raw_bytes_to_go == 0 {
+            return Ok(());
+        }
+
+        if self.compressed.len() == self.compressed_pos {
+            return Ok(());
+        }
+
+        if chunk_pos == 0 {
+            let (header, offset) =
+                BlockHeader::try_from_block(&self.compressed[self.compressed_pos..])?;
+
+            debug_assert!(
+                header.compressor == Compressor::Kraken
+                    || header.compressor == Compressor::Mermaid
+                    || header.compressor == Compressor::Leviathan
+            );
+
+            if header.is_reset {
+                self.reset_pos = Some(self.decompressed_pos);
+            }
+
+            self.header = Some(header);
+            self.compressed_pos += offset;
+        }
+
+        debug_assert!(self.header.is_some());
+        let header = self.header.as_ref().unwrap();
+
+        if header.is_memcpy {
+            let compressed_available = self.compressed.len() - self.compressed_pos;
+
+            if raw_bytes_to_go > compressed_available {
+                return Ok(());
+            }
+
+            let src = &self.compressed[self.compressed_pos..self.compressed_pos + raw_bytes_to_go];
+            let dst = &mut self.decompressed
+                [self.decompressed_pos..self.decompressed_pos + raw_bytes_to_go];
+
+            dst.copy_from_slice(src);
+
+            self.compressed_pos += raw_bytes_to_go;
+            self.decompressed_pos += raw_bytes_to_go;
+
+            return Ok(());
+        }
+
+        let (quantum_header, offset) = QuantumHeader::try_from(
+            &self.compressed[self.compressed_pos..],
+            header.has_quantum_crcs,
+            raw_bytes_to_go,
+        )?;
+        self.compressed_pos += offset;
+
+        if quantum_header.compressed_len > raw_bytes_to_go {
+            return Err(Error::InvalidQuantumLength(quantum_header.compressed_len));
+        }
+
+        if quantum_header.compressed_len > self.compressed.len() - self.compressed_pos {
+            return Err(Error::InvalidQuantumLength(quantum_header.compressed_len));
+        }
+
+        if self.check_crc && quantum_header.compressed_len > 0 && header.has_quantum_crcs {
+            debug_assert!(quantum_header.crc.is_some());
+            let crc = quantum_header.crc.unwrap();
+
+            let computed_crc = compute_crc(
+                &self.compressed
+                    [self.compressed_pos..self.compressed_pos + quantum_header.compressed_len],
+            );
+
+            if crc != computed_crc {
+                return Err(Error::InvalidCRC(format!(
+                    "CRC mismatch: expected {:08X}, got {:08X}",
+                    crc, computed_crc
+                )));
+            }
+        }
+
+        if quantum_header.compressed_len == raw_bytes_to_go {
+            // memcpy
+
+            todo!();
+
+            // return Ok(());
+        }
+
+        let pos_since_reset = self.decompressed_pos - self.reset_pos.unwrap_or(0);
 
         let scratch_size = compressor_scratch_memory_size(self.compressor, self.decompressed.len());
         let mut scratch = vec![0u8; scratch_size];
 
-        let decoder_size = size_of::<OodleLZDecoder>() + size_of::<u64>();
-
-        let mut decoder = OodleLZDecoder {
-            decPos: self.decompressed_pos as i64,
-            decLen: self.decompressed.len() as i64,
-            gotHeaderPos: -1,
-            resetPos: 0,
-            check: 0,
-            callsWithoutProgress: 0,
-            ownsmem: true as i32,
-            header: LZBlockHeader {
-                version: 0,
-                decodeType: 0,
-                offsetShift: 0,
-                chunkIsMemcpy: 0,
-                chunkIsReset: 0,
-                chunkHasQuantumCRCs: 0,
-            },
-            decoderSize: decoder_size as i32,
-            memorySize: (decoder_size + scratch_size) as i32,
-            scratch: scratch.as_mut_ptr() as *mut _,
-            scratch_size: scratch_size as isize,
-            legacy: [0u8; 64],
+        let (written_bytes, read_bytes) = match header.compressor {
+            Compressor::Kraken => kraken_decode_one_quantum(
+                &self.compressed
+                    [self.compressed_pos..self.compressed_pos + quantum_header.compressed_len],
+                &mut self.decompressed
+                    [self.decompressed_pos..self.decompressed_pos + raw_bytes_to_go],
+                pos_since_reset,
+                &mut scratch,
+            )?,
+            Compressor::Leviathan => leviathan_decode_one_quantum(
+                &self.compressed
+                    [self.compressed_pos..self.compressed_pos + quantum_header.compressed_len],
+                &mut self.decompressed
+                    [self.decompressed_pos..self.decompressed_pos + raw_bytes_to_go],
+                pos_since_reset,
+                &mut scratch,
+            )?,
+            Compressor::Mermaid => mermaid_decode_one_quantum(
+                &self.compressed
+                    [self.compressed_pos..self.compressed_pos + quantum_header.compressed_len],
+                &mut self.decompressed
+                    [self.decompressed_pos..self.decompressed_pos + raw_bytes_to_go],
+                pos_since_reset,
+                &mut scratch,
+            )?,
+            Compressor::Selkie | Compressor::Hydra => unreachable!(),
         };
 
-        let result = unsafe {
-            OodleLZDecoder_DecodeSome(
-                std::ptr::addr_of_mut!(decoder) as *mut _,
-                &mut out,
-                self.decompressed.as_mut_ptr() as *mut _,
-                self.decompressed_pos as isize,
-                self.dictionary_len as isize,
-                (self.dictionary_len - self.decompressed_pos) as isize,
-                self.compressed.as_ptr().add(self.compressed_pos) as *const _,
-                (self.compressed.len() - self.compressed_pos) as isize,
-                OodleLZ_FuzzSafe::OodleLZ_FuzzSafe_Yes,
-                if self.check_crc {
-                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_Yes
-                } else {
-                    OodleLZ_CheckCRC::OodleLZ_CheckCRC_No
-                },
-                OodleLZ_Verbosity::OodleLZ_Verbosity_None,
-                OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
-            )
-        };
+        self.compressed_pos += read_bytes;
+        self.decompressed_pos += written_bytes;
 
-        // result is bool
-        if result == 0 {
-            return Err(Error::DecompressionFailed);
+        if self.decompressed_pos > self.decompressed.len() {
+            return Err(Error::DecompressionError(
+                "Decompressed data exceeds buffer size".to_owned(),
+            ));
         }
 
-        if out.decodedCount == 0 {
-            return Err(Error::DecompressionFailed);
+        if read_bytes != quantum_header.compressed_len {
+            return Err(Error::DecompressionError(
+                "Decompressed data does not match header".to_owned(),
+            ));
         }
 
-        Ok((out.decodedCount as usize, out.compBufUsed as usize))
+        Ok(())
     }
+}
+
+fn kraken_decode_one_quantum(
+    compressed: &[u8],
+    decompressed: &mut [u8],
+    pos_since_reset: usize,
+    scratch: &mut [u8],
+) -> Result<(usize, usize)> {
+    let base_decompressed_ptr = decompressed.as_mut_ptr();
+    let decompressed_ptr = base_decompressed_ptr.clone();
+
+    let read_bytes = unsafe {
+        Kraken_DecodeOneQuantum(
+            decompressed_ptr,
+            decompressed_ptr.add(decompressed.len()),
+            compressed.as_ptr(),
+            compressed.len() as i32,
+            compressed.as_ptr().add(compressed.len()),
+            pos_since_reset as isize,
+            scratch.as_mut_ptr() as *mut _,
+            scratch.len() as isize,
+            OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
+        ) as usize
+    };
+
+    if read_bytes == 0 {
+        return Err(Error::DecompressionFailed);
+    }
+
+    if read_bytes != compressed.len() {
+        return Err(Error::DecompressionError(format!(
+            "Decompressed data does not match header: {} != {}",
+            read_bytes,
+            compressed.len()
+        )));
+    }
+
+    let written_bytes = decompressed.len();
+
+    Ok((written_bytes, read_bytes))
+}
+
+fn leviathan_decode_one_quantum(
+    compressed: &[u8],
+    decompressed: &mut [u8],
+    pos_since_reset: usize,
+    scratch: &mut [u8],
+) -> Result<(usize, usize)> {
+    let base_decompressed_ptr = decompressed.as_mut_ptr();
+    let decompressed_ptr = base_decompressed_ptr.clone();
+
+    let read_bytes = unsafe {
+        Leviathan_DecodeOneQuantum(
+            decompressed_ptr,
+            decompressed_ptr.add(decompressed.len()),
+            compressed.as_ptr(),
+            compressed.len() as i32,
+            compressed.as_ptr().add(compressed.len()),
+            pos_since_reset as isize,
+            scratch.as_mut_ptr() as *mut _,
+            scratch.len() as isize,
+            OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
+        ) as usize
+    };
+
+    if read_bytes == 0 {
+        return Err(Error::DecompressionFailed);
+    }
+
+    if read_bytes != compressed.len() {
+        return Err(Error::DecompressionError(format!(
+            "Decompressed data does not match header: {} != {}",
+            read_bytes,
+            compressed.len()
+        )));
+    }
+
+    let written_bytes = decompressed.len();
+
+    Ok((written_bytes, read_bytes))
+}
+
+fn mermaid_decode_one_quantum(
+    compressed: &[u8],
+    decompressed: &mut [u8],
+    pos_since_reset: usize,
+    scratch: &mut [u8],
+) -> Result<(usize, usize)> {
+    let base_decompressed_ptr = decompressed.as_mut_ptr();
+    let decompressed_ptr = base_decompressed_ptr.clone();
+
+    let read_bytes = unsafe {
+        Mermaid_DecodeOneQuantum(
+            decompressed_ptr,
+            decompressed_ptr.add(decompressed.len()),
+            compressed.as_ptr(),
+            compressed.len() as i32,
+            compressed.as_ptr().add(compressed.len()),
+            pos_since_reset as isize,
+            scratch.as_mut_ptr() as *mut _,
+            scratch.len() as isize,
+            OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
+        ) as usize
+    };
+
+    if read_bytes == 0 {
+        return Err(Error::DecompressionFailed);
+    }
+
+    if read_bytes != compressed.len() {
+        return Err(Error::DecompressionError(format!(
+            "Decompressed data does not match header: {} != {}",
+            read_bytes,
+            compressed.len()
+        )));
+    }
+
+    let written_bytes = decompressed.len();
+
+    Ok((written_bytes, read_bytes))
 }

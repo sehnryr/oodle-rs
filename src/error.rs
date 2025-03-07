@@ -59,4 +59,16 @@ pub enum Error {
     /// Invalid quantum special.
     #[error("Invalid quantum special: {0}")]
     InvalidQuantumSpecial(u32),
+
+    /// Invalid quantum length.
+    #[error("Invalid quantum length: {0}")]
+    InvalidQuantumLength(usize),
+
+    /// Invalid CRC.
+    #[error("Invalid CRC: {0}")]
+    InvalidCRC(String),
+
+    /// Decompression error.
+    #[error("Decompression error: {0}")]
+    DecompressionError(String),
 }

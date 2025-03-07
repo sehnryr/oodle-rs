@@ -66,8 +66,11 @@ fn main() {
         .rustified_enum(".*")
         .allowlist_recursively(true)
         .allowlist_function("oo2::OodleLZ_Compress")
-        .allowlist_function("oo2::OodleLZDecoder_DecodeSome")
-        .allowlist_type("oo2::OodleLZDecoder")
+        .allowlist_function("oo2::Kraken_DecodeOneQuantum")
+        .allowlist_function("oo2::Mermaid_DecodeOneQuantum")
+        .allowlist_function("oo2::Leviathan_DecodeOneQuantum")
+        .allowlist_function("oo2::LZQuantumHeader_ComputeCRC")
+        .allowlist_type("oo2::LZBlockHeader")
         .allowlist_type("oo2::LZQuantumHeader")
         // Define Oodle usage
         .clang_arg("-DOODLE_BUILDING_LIB")
