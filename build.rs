@@ -56,6 +56,7 @@ fn main() {
                 .iter()
                 .map(|dir| format!("-I{}", dir.display())),
         )
+        .header(oodle_dir.join("core/rrbighash.h").to_string_lossy())
         .header(oodle_dir.join("core/oodlelzpub.h").to_string_lossy())
         .header(
             oodle_dir
@@ -69,7 +70,7 @@ fn main() {
         .allowlist_function("oo2::Kraken_DecodeOneQuantum")
         .allowlist_function("oo2::Mermaid_DecodeOneQuantum")
         .allowlist_function("oo2::Leviathan_DecodeOneQuantum")
-        .allowlist_function("oo2::LZQuantumHeader_ComputeCRC")
+        .allowlist_function("oo2::rrBigHash64_SIMD")
         .allowlist_type("oo2::LZBlockHeader")
         .allowlist_type("oo2::LZQuantumHeader")
         // Define Oodle usage
