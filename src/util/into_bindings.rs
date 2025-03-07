@@ -1,6 +1,5 @@
 use crate::bindings::root::oo2::*;
 use crate::error::{Error, Result};
-use crate::header::{BlockHeader, QuantumHeader};
 use crate::model::*;
 
 impl TryFrom<OodleLZ_Compressor> for Compressor {
@@ -97,37 +96,6 @@ impl Into<OodleLZ_CompressOptions> for CompressOptions {
             farMatchMinLen: self.far_match_min_len,
             farMatchOffsetLog2: self.far_match_offset_log2,
             reserved: [0; 4],
-        }
-    }
-}
-
-impl Into<LZBlockHeader> for BlockHeader {
-    fn into(self) -> LZBlockHeader {
-        LZBlockHeader {
-            version: 4,
-            decodeType: match self.compressor {
-                Compressor::Kraken => 6,
-                Compressor::Mermaid => 10,
-                Compressor::Leviathan => 12,
-                _ => unreachable!(),
-            },
-            offsetShift: 0,
-            chunkIsMemcpy: self.is_memcpy as i32,
-            chunkIsReset: self.is_reset as i32,
-            chunkHasQuantumCRCs: self.has_quantum_crcs as i32,
-        }
-    }
-}
-
-impl Into<LZQuantumHeader> for QuantumHeader {
-    fn into(self) -> LZQuantumHeader {
-        LZQuantumHeader {
-            compLen: self.compressed_len as i32,
-            crc: self.crc.unwrap_or(0),
-            wholeMatchFlag: self.whole_match as i32,
-            wholeMatchOffset: self.whole_match_offset as isize,
-            huffFlag: self.huff as i32,
-            extraFlag: self.extra as i32,
         }
     }
 }
