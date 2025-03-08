@@ -1,6 +1,7 @@
 pub mod compression;
 pub mod crc;
 pub mod into_bindings;
+mod vec;
 
 macro_rules! array_range {
     ($bytes:expr, $start:expr; .. $end:expr) => {
