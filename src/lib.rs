@@ -1,5 +1,5 @@
 //! Kraken, Mermaid, Selkie, Leviathan compression.
-
+#![cfg_attr(feature = "simd", feature(portable_simd))]
 #![warn(unsafe_code)]
 #![deny(missing_docs)]
 #![allow(non_upper_case_globals)]

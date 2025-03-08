@@ -6,55 +6,115 @@ pub(crate) fn compute_crc(data: &[u8]) -> u32 {
     (crc & 0xFFFFFF) as u32
 }
 
-#[derive(Clone, Copy)]
-struct Quad<T> {
-    data: [T; 4],
+#[cfg(feature = "simd")]
+mod quad {
+    use std::simd::{Simd, SimdElement};
+
+    #[derive(Clone, Copy)]
+    pub struct Quad<T>
+    where
+        T: SimdElement,
+    {
+        data: Simd<T, 4>,
+    }
+
+    impl<T> Quad<T>
+    where
+        T: SimdElement,
+    {
+        pub fn new(data: [T; 4]) -> Self {
+            Self {
+                data: Simd::from_array(data),
+            }
+        }
+    }
+
+    impl Quad<u32> {
+        pub fn rotate_left(mut self, shift: u32) -> Self {
+            self.data = (self.data << shift) | (self.data >> (32 - shift));
+            self
+        }
+
+        pub fn wrapping_add(mut self, rhs: Self) -> Self {
+            self.data += rhs.data;
+            self
+        }
+
+        pub fn wrapping_sub(mut self, rhs: Self) -> Self {
+            self.data -= rhs.data;
+            self
+        }
+    }
+
+    impl From<Quad<u32>> for [u32; 4] {
+        fn from(value: Quad<u32>) -> Self {
+            value.data.to_array()
+        }
+    }
+
+    impl std::ops::BitXorAssign for Quad<u32> {
+        fn bitxor_assign(&mut self, rhs: Self) {
+            self.data ^= rhs.data;
+        }
+    }
 }
 
-impl Quad<u32> {
-    fn new(data: [u32; 4]) -> Self {
-        Self { data }
+#[cfg(not(feature = "simd"))]
+mod quad {
+    #[derive(Clone, Copy)]
+    pub struct Quad<T> {
+        data: [T; 4],
     }
 
-    fn rotate_left(mut self, shift: u32) -> Self {
-        self.data[0] = self.data[0].rotate_left(shift);
-        self.data[1] = self.data[1].rotate_left(shift);
-        self.data[2] = self.data[2].rotate_left(shift);
-        self.data[3] = self.data[3].rotate_left(shift);
-        self
+    impl<T> Quad<T> {
+        pub fn new(data: [T; 4]) -> Self {
+            Self { data }
+        }
     }
 
-    fn wrapping_add(mut self, rhs: Self) -> Self {
-        self.data[0] = self.data[0].wrapping_add(rhs.data[0]);
-        self.data[1] = self.data[1].wrapping_add(rhs.data[1]);
-        self.data[2] = self.data[2].wrapping_add(rhs.data[2]);
-        self.data[3] = self.data[3].wrapping_add(rhs.data[3]);
-        self
+    impl Quad<u32> {
+        pub fn rotate_left(mut self, shift: u32) -> Self {
+            self.data[0] = self.data[0].rotate_left(shift);
+            self.data[1] = self.data[1].rotate_left(shift);
+            self.data[2] = self.data[2].rotate_left(shift);
+            self.data[3] = self.data[3].rotate_left(shift);
+            self
+        }
+
+        pub fn wrapping_add(mut self, rhs: Self) -> Self {
+            self.data[0] = self.data[0].wrapping_add(rhs.data[0]);
+            self.data[1] = self.data[1].wrapping_add(rhs.data[1]);
+            self.data[2] = self.data[2].wrapping_add(rhs.data[2]);
+            self.data[3] = self.data[3].wrapping_add(rhs.data[3]);
+            self
+        }
+
+        pub fn wrapping_sub(mut self, rhs: Self) -> Self {
+            self.data[0] = self.data[0].wrapping_sub(rhs.data[0]);
+            self.data[1] = self.data[1].wrapping_sub(rhs.data[1]);
+            self.data[2] = self.data[2].wrapping_sub(rhs.data[2]);
+            self.data[3] = self.data[3].wrapping_sub(rhs.data[3]);
+            self
+        }
     }
 
-    fn wrapping_sub(mut self, rhs: Self) -> Self {
-        self.data[0] = self.data[0].wrapping_sub(rhs.data[0]);
-        self.data[1] = self.data[1].wrapping_sub(rhs.data[1]);
-        self.data[2] = self.data[2].wrapping_sub(rhs.data[2]);
-        self.data[3] = self.data[3].wrapping_sub(rhs.data[3]);
-        self
+    impl From<Quad<u32>> for [u32; 4] {
+        fn from(value: Quad<u32>) -> Self {
+            value.data
+        }
+    }
+
+    impl std::ops::BitXorAssign for Quad<u32> {
+        fn bitxor_assign(&mut self, rhs: Self) {
+            self.data[0] ^= rhs.data[0];
+            self.data[1] ^= rhs.data[1];
+            self.data[2] ^= rhs.data[2];
+            self.data[3] ^= rhs.data[3];
+        }
     }
 }
 
-impl From<Quad<u32>> for [u32; 4] {
-    fn from(data: Quad<u32>) -> Self {
-        data.data
-    }
-}
-
-impl std::ops::BitXorAssign for Quad<u32> {
-    fn bitxor_assign(&mut self, rhs: Self) {
-        self.data[0] ^= rhs.data[0];
-        self.data[1] ^= rhs.data[1];
-        self.data[2] ^= rhs.data[2];
-        self.data[3] ^= rhs.data[3];
-    }
-}
+use quad::Quad;
 
 macro_rules! mix {
     ($a:expr, $b:expr, $c:expr) => {
