@@ -149,36 +149,16 @@ macro_rules! final_mix {
 }
 
 fn big_hash(data: &[u8]) -> u64 {
-    let mut length = data.len();
+    let length = data.len() as u32;
 
-    let mut a = Quad::new([0xdeadbeef_u32.wrapping_add(length as u32); 4]);
+    let mut a = Quad::new([0xdeadbeef_u32.wrapping_add(length); 4]);
     let mut b = Quad::new([0x206F85B3_u32; 4]);
-    let mut c = Quad::new([0x5768B525_u32.wrapping_sub(length as u32); 4]);
+    let mut c = Quad::new([0x5768B525_u32.wrapping_sub(length); 4]);
 
-    let mut iter = data.chunks_exact(16).map(|chunk| {
-        Quad::new([
-            u32::from_be_bytes(array_range!(chunk, 0; .. 4)),
-            u32::from_be_bytes(array_range!(chunk, 4; .. 8)),
-            u32::from_be_bytes(array_range!(chunk, 8; .. 12)),
-            u32::from_be_bytes(array_range!(chunk, 12; .. 16)),
-        ])
-    });
+    let mut chunks = data.chunks_exact(16 * 3);
 
-    while length >= 48 {
-        a = a.wrapping_add(iter.next().unwrap());
-        b = b.wrapping_add(iter.next().unwrap());
-        c = c.wrapping_add(iter.next().unwrap());
-
-        mix!(a, b, c);
-
-        length -= 48;
-    }
-
-    if length > 0 {
-        let mut last = [0; 48];
-        last[..length].copy_from_slice(&data[data.len() - length..]);
-
-        let mut iter = last.chunks_exact(16).map(|chunk| {
+    while let Some(chunk) = chunks.next() {
+        let mut quads = chunk.chunks_exact(16).map(|chunk| {
             Quad::new([
                 u32::from_be_bytes(array_range!(chunk, 0; .. 4)),
                 u32::from_be_bytes(array_range!(chunk, 4; .. 8)),
@@ -187,9 +167,29 @@ fn big_hash(data: &[u8]) -> u64 {
             ])
         });
 
-        a = a.wrapping_add(iter.next().unwrap());
-        b = b.wrapping_add(iter.next().unwrap());
-        c = c.wrapping_add(iter.next().unwrap());
+        a = a.wrapping_add(quads.next().unwrap());
+        b = b.wrapping_add(quads.next().unwrap());
+        c = c.wrapping_add(quads.next().unwrap());
+
+        mix!(a, b, c);
+    }
+
+    if let remainder @ [_, ..] = chunks.remainder() {
+        let mut last = [0; 16 * 3];
+        last[..remainder.len()].copy_from_slice(remainder);
+
+        let mut quads = last.chunks_exact(16).map(|chunk| {
+            Quad::new([
+                u32::from_be_bytes(array_range!(chunk, 0; .. 4)),
+                u32::from_be_bytes(array_range!(chunk, 4; .. 8)),
+                u32::from_be_bytes(array_range!(chunk, 8; .. 12)),
+                u32::from_be_bytes(array_range!(chunk, 12; .. 16)),
+            ])
+        });
+
+        a = a.wrapping_add(quads.next().unwrap());
+        b = b.wrapping_add(quads.next().unwrap());
+        c = c.wrapping_add(quads.next().unwrap());
 
         mix!(a, b, c);
     }
