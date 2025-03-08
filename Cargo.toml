@@ -19,6 +19,6 @@ bindgen = "0.71.1"
 cc = { version = "1.2.15", features = ["parallel"] }
 
 [features]
-default = ["simd"]
+default = []
 simd = []
 cold_path = []
