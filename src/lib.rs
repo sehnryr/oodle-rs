@@ -36,13 +36,8 @@ const MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ: usize = 4096;
 
 #[cfg(test)]
 mod tests {
+    use super::util::array_range;
     use super::*;
-
-    macro_rules! array_range {
-        ($bytes:expr, $start:expr; .. $end:expr) => {
-            core::array::from_fn::<_, $end, _>(|i| $bytes[$start + i])
-        };
-    }
 
     #[test]
     fn test_compress() {
@@ -116,6 +111,8 @@ mod tests {
     macro_rules! test_suite_decompress {
         ($compressor:ident) => {
             mod $compressor {
+                use super::*;
+
                 test_decompress!(test_decompress_dickens, stringify!($compressor), "dickens");
                 test_decompress!(test_decompress_mozilla, stringify!($compressor), "mozilla");
                 test_decompress!(test_decompress_mr, stringify!($compressor), "mr");
