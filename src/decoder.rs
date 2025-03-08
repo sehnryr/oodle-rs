@@ -1,3 +1,6 @@
+#[cfg(feature = "cold_path")]
+use std::hint::cold_path;
+
 use crate::BLOCK_LEN;
 use crate::bindings::root::oo2::*;
 use crate::error::{Error, Result};
@@ -74,10 +77,16 @@ impl<'a> Decoder<'a> {
         raw_bytes_to_go = raw_bytes_to_go.min(raw_len_left);
 
         if raw_bytes_to_go == 0 {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             return Ok(());
         }
 
         if self.compressed.len() == self.compressed_pos {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             return Ok(());
         }
 
@@ -106,6 +115,9 @@ impl<'a> Decoder<'a> {
             let compressed_available = self.compressed.len() - self.compressed_pos;
 
             if raw_bytes_to_go > compressed_available {
+                #[cfg(feature = "cold_path")]
+                cold_path();
+
                 return Ok(());
             }
 
@@ -129,14 +141,23 @@ impl<'a> Decoder<'a> {
         self.compressed_pos += offset;
 
         if quantum_header.compressed_len > raw_bytes_to_go {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             return Err(Error::InvalidQuantumLength(quantum_header.compressed_len));
         }
 
         if quantum_header.compressed_len > self.compressed.len() - self.compressed_pos {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             return Err(Error::InvalidQuantumLength(quantum_header.compressed_len));
         }
 
         if self.check_crc && quantum_header.compressed_len > 0 && header.has_quantum_crcs {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             debug_assert!(quantum_header.crc.is_some());
             let crc = quantum_header.crc.unwrap();
 
@@ -154,6 +175,9 @@ impl<'a> Decoder<'a> {
         }
 
         if quantum_header.compressed_len == raw_bytes_to_go {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             // memcpy
 
             todo!();
@@ -198,12 +222,18 @@ impl<'a> Decoder<'a> {
         self.decompressed_pos += written_bytes;
 
         if self.decompressed_pos > self.decompressed.len() {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             return Err(Error::DecompressionError(
                 "Decompressed data exceeds buffer size".to_owned(),
             ));
         }
 
         if read_bytes != quantum_header.compressed_len {
+            #[cfg(feature = "cold_path")]
+            cold_path();
+
             return Err(Error::DecompressionError(
                 "Decompressed data does not match header".to_owned(),
             ));
@@ -237,10 +267,16 @@ fn kraken_decode_one_quantum(
     };
 
     if read_bytes == 0 {
+        #[cfg(feature = "cold_path")]
+        cold_path();
+
         return Err(Error::DecompressionFailed);
     }
 
     if read_bytes != compressed.len() {
+        #[cfg(feature = "cold_path")]
+        cold_path();
+
         return Err(Error::DecompressionError(format!(
             "Decompressed data does not match header: {} != {}",
             read_bytes,
@@ -277,10 +313,16 @@ fn leviathan_decode_one_quantum(
     };
 
     if read_bytes == 0 {
+        #[cfg(feature = "cold_path")]
+        cold_path();
+
         return Err(Error::DecompressionFailed);
     }
 
     if read_bytes != compressed.len() {
+        #[cfg(feature = "cold_path")]
+        cold_path();
+
         return Err(Error::DecompressionError(format!(
             "Decompressed data does not match header: {} != {}",
             read_bytes,
@@ -317,10 +359,16 @@ fn mermaid_decode_one_quantum(
     };
 
     if read_bytes == 0 {
+        #[cfg(feature = "cold_path")]
+        cold_path();
+
         return Err(Error::DecompressionFailed);
     }
 
     if read_bytes != compressed.len() {
+        #[cfg(feature = "cold_path")]
+        cold_path();
+
         return Err(Error::DecompressionError(format!(
             "Decompressed data does not match header: {} != {}",
             read_bytes,

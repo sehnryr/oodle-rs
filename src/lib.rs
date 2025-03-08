@@ -1,4 +1,5 @@
 //! Kraken, Mermaid, Selkie, Leviathan compression.
+#![cfg_attr(feature = "cold_path", feature(cold_path))]
 #![cfg_attr(feature = "simd", feature(portable_simd))]
 #![warn(unsafe_code)]
 #![deny(missing_docs)]
