@@ -69,8 +69,12 @@ mod tests {
     macro_rules! test_decompress {
         ($test_name:ident, $compressor:expr, $test:expr) => {
             #[test]
-            fn $test_name () {
-                let compressed = std::fs::read(format!("test-data/{}/{}.{}", $compressor, $test, $compressor)).unwrap();
+            fn $test_name() {
+                let compressed = std::fs::read(format!(
+                    "test-data/{}/{}.{}",
+                    $compressor, $test, $compressor
+                ))
+                .unwrap();
 
                 let (compressed, decompressed_len) = if compressed[4] == 0x8C {
                     (
@@ -87,14 +91,16 @@ mod tests {
                 let mut decompressed = vec![0; decompressed_len];
 
                 let result =
-                crate::decompress::decompress(&compressed, &mut decompressed, None, None).expect("Decompression failed");
+                    crate::decompress::decompress(&compressed, &mut decompressed, None, None)
+                        .expect("Decompression failed");
 
                 assert!(
                     result >= decompressed_len,
                     "Decompression result is less than expected length"
                 );
 
-                let expected_decompressed = std::fs::read(format!("test-data/raw/{}", $test)).unwrap();
+                let expected_decompressed =
+                    std::fs::read(format!("test-data/raw/{}", $test)).unwrap();
 
                 assert_eq!(
                     expected_decompressed.len(),
