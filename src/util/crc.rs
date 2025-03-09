@@ -46,30 +46,23 @@ fn big_hash(data: &[u8]) -> u64 {
     let mut b = Vec4D::splat(0x206F85B3_u32);
     let mut c = Vec4D::splat(0x5768B525_u32.wrapping_sub(length));
 
-    let mut chunks = data.chunks_exact(16 * 3);
+    let exact_chunks = data.chunks_exact(48);
+    let remainder = exact_chunks.remainder();
+
+    let last: Box<dyn Iterator<Item = [u8; 48]>> = if remainder.is_empty() {
+        Box::new(std::iter::empty())
+    } else {
+        let mut padded = [0; 48];
+        padded[..remainder.len()].copy_from_slice(remainder);
+        Box::new(std::iter::once(padded))
+    };
+
+    let mut chunks = exact_chunks
+        .map(|chunk| chunk.try_into().unwrap()) // convert slice into array
+        .chain(last);
 
     while let Some(chunk) = chunks.next() {
         let mut quads = chunk.chunks_exact(16).map(|chunk| {
-            Vec4D::from_array([
-                u32::from_be_bytes(array_range!(chunk, 0; .. 4)),
-                u32::from_be_bytes(array_range!(chunk, 4; .. 8)),
-                u32::from_be_bytes(array_range!(chunk, 8; .. 12)),
-                u32::from_be_bytes(array_range!(chunk, 12; .. 16)),
-            ])
-        });
-
-        a = a.wrapping_add(quads.next().unwrap());
-        b = b.wrapping_add(quads.next().unwrap());
-        c = c.wrapping_add(quads.next().unwrap());
-
-        mix!(a, b, c);
-    }
-
-    if let remainder @ [_, ..] = chunks.remainder() {
-        let mut last = [0; 16 * 3];
-        last[..remainder.len()].copy_from_slice(remainder);
-
-        let mut quads = last.chunks_exact(16).map(|chunk| {
             Vec4D::from_array([
                 u32::from_be_bytes(array_range!(chunk, 0; .. 4)),
                 u32::from_be_bytes(array_range!(chunk, 4; .. 8)),
