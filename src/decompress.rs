@@ -11,7 +11,7 @@ use crate::error::{Error, Result};
 /// * `compressed` - The data to be decompressed.
 /// * `decompressed` - The buffer to write the decompressed data.
 /// * `check_crc` - Whether to check the CRC of the decompressed data.
-/// * `dictionary_len` - The length of the dictionary to use for decompression.
+/// * `dictionary_len` - The length of the base dictionary.
 ///
 /// # Returns
 ///

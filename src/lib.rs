@@ -53,8 +53,8 @@ mod tests {
             &mut compressed,
             Compressor::Kraken,
             CompressionLevel::Normal,
-            None,
-            None,
+            CompressOptions::default(),
+            0,
         )
         .expect("Compression failed");
 

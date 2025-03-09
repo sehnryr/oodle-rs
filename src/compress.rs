@@ -11,47 +11,36 @@ use crate::model::{CompressOptions, CompressionLevel, Compressor};
 /// * `compressor` - The compressor to use.
 /// * `level` - The compression level to use.
 /// * `compress_options` - The compression options to use. See [`CompressOptions`] for more details.
-/// * `dictionary_base` - The base dictionary to use for decompression.
+/// * `dictionary_len` - The length of the base dictionary.
 ///
 /// # Returns
 ///
 /// The size of the compressed data.
 ///
-/// # Panics
+/// # Notes
 ///
-/// Panics if `dictionary_base` is not contiguous with `decompressed`.
+/// A dictionary base can be provided within the `decompressed` buffer
+/// at [0..dictionary_len].
 pub fn compress(
     decompressed: &[u8],
     compressed: &mut [u8],
     compressor: Compressor,
     level: CompressionLevel,
-    compress_options: Option<CompressOptions>,
-    dictionary_base: Option<&[u8]>,
+    compress_options: CompressOptions,
+    dictionary_len: usize,
 ) -> Result<usize> {
-    let decompressed_len = decompressed.len();
-
-    // Ensure dictionary_base is contiguous with decompressed
-    // This is mandatory since we call functions from the Oodle library
-    // TODO: Remove this check when we reimplement the Oodle library in Rust
-    if let Some(dict) = dictionary_base {
-        assert!(dict.as_ptr() as usize + dict.len() == decompressed.as_ptr() as usize);
-    }
+    let dictionary_base = &decompressed[..dictionary_len];
+    let decompressed = &decompressed[dictionary_len..];
 
     let n = unsafe {
         OodleLZ_Compress(
             compressor.into(),
             decompressed.as_ptr() as *const _,
-            decompressed_len as isize,
+            decompressed.len() as isize,
             compressed.as_mut_ptr() as *mut _,
             level.into(),
-            match compress_options {
-                Some(options) => &options.into(),
-                None => std::ptr::null(),
-            },
-            match dictionary_base {
-                Some(dict) => dict.as_ptr() as *const _,
-                None => std::ptr::null(),
-            },
+            &compress_options.into(),
+            dictionary_base.as_ptr() as *const _,
             std::ptr::null(),
             std::ptr::null_mut(),
             0,
