@@ -1,4 +1,4 @@
-use super::{Jobify, Profile};
+use super::Profile;
 
 /// Options for the compressor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -35,8 +35,6 @@ pub struct CompressOptions {
     /// When variable, sets the size of the match finder structure (often a hash table).
     /// Use 0 for the compressor's default.
     pub(crate) match_table_size_log2: i32,
-    /// Controls internal job usage by compressors.
-    pub(crate) jobify: Option<Jobify>,
     /// Far matches must be at least this len.
     pub(crate) far_match_min_len: i32,
     /// If not zero, the log2 of an offset that must meet `far_match_min_len`.
@@ -56,7 +54,6 @@ impl Default for CompressOptions {
             max_local_dictionary_size: 2 << 20,
             make_long_range_matcher: true,
             match_table_size_log2: 0,
-            jobify: Some(Jobify::default()),
             far_match_min_len: 0,
             far_match_offset_log2: 0,
         }
@@ -126,12 +123,6 @@ impl CompressOptions {
     /// Sets the match table size log2.
     pub fn match_table_size_log2(mut self, match_table_size_log2: i32) -> Self {
         self.match_table_size_log2 = match_table_size_log2;
-        self
-    }
-
-    /// Sets whether to jobify.
-    pub fn jobify(mut self, jobify: Option<Jobify>) -> Self {
-        self.jobify = jobify;
         self
     }
 

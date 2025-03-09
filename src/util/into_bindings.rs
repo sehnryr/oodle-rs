@@ -62,17 +62,6 @@ impl Into<OodleLZ_Profile> for Profile {
     }
 }
 
-impl Into<OodleLZ_Jobify> for Jobify {
-    fn into(self) -> OodleLZ_Jobify {
-        use OodleLZ_Jobify::*;
-        match self {
-            Jobify::Default => OodleLZ_Jobify_Default,
-            Jobify::Normal => OodleLZ_Jobify_Normal,
-            Jobify::Aggressive => OodleLZ_Jobify_Aggressive,
-        }
-    }
-}
-
 impl Into<OodleLZ_CompressOptions> for CompressOptions {
     fn into(self) -> OodleLZ_CompressOptions {
         OodleLZ_CompressOptions {
@@ -88,10 +77,7 @@ impl Into<OodleLZ_CompressOptions> for CompressOptions {
             maxLocalDictionarySize: self.max_local_dictionary_size,
             makeLongRangeMatcher: self.make_long_range_matcher as i32,
             matchTableSizeLog2: self.match_table_size_log2,
-            jobify: match self.jobify {
-                Some(jobify) => jobify.into(),
-                None => OodleLZ_Jobify::OodleLZ_Jobify_Disable,
-            },
+            jobify: OodleLZ_Jobify::OodleLZ_Jobify_Disable,
             jobifyUserPtr: std::ptr::null_mut(),
             farMatchMinLen: self.far_match_min_len,
             farMatchOffsetLog2: self.far_match_offset_log2,
