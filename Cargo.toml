@@ -22,3 +22,18 @@ cc = { version = "1.2.15", features = ["parallel"] }
 default = []
 simd = []
 cold_path = []
+
+[dev-dependencies]
+criterion = "0.5.1"
+oodle-sys = "0.2.0"
+
+[[bench]]
+name = "decompress"
+harness = false
+
+[profile.release]
+opt-level = 3
+strip = "symbols"
+lto = true
+panic = "abort"
+codegen-units = 1
