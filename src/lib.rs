@@ -37,7 +37,8 @@ const MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ: usize = 4096;
 
 #[cfg(test)]
 mod tests {
-    use super::util::array_range;
+    use std::array::from_fn;
+
     use super::*;
 
     #[test]
@@ -74,12 +75,12 @@ mod tests {
                 let (compressed, decompressed_len) = if compressed[4] == 0x8C {
                     (
                         &compressed[4..],
-                        u32::from_le_bytes(array_range!(compressed, 0; .. 4)) as usize,
+                        u32::from_le_bytes(from_fn(|i| compressed[i])) as usize,
                     )
                 } else {
                     (
                         &compressed[8..],
-                        u64::from_le_bytes(array_range!(compressed, 0; .. 8)) as usize,
+                        u64::from_le_bytes(from_fn(|i| compressed[i])) as usize,
                     )
                 };
 

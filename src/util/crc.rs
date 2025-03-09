@@ -1,4 +1,5 @@
-use super::array_range;
+use std::array::from_fn;
+
 use super::vec::Vec4D;
 
 pub(crate) fn compute_crc(data: &[u8]) -> u32 {
@@ -64,10 +65,10 @@ fn big_hash(data: &[u8]) -> u64 {
     while let Some(chunk) = chunks.next() {
         let mut quads = chunk.chunks_exact(16).map(|chunk| {
             Vec4D::from_array([
-                u32::from_be_bytes(array_range!(chunk, 0; .. 4)),
-                u32::from_be_bytes(array_range!(chunk, 4; .. 8)),
-                u32::from_be_bytes(array_range!(chunk, 8; .. 12)),
-                u32::from_be_bytes(array_range!(chunk, 12; .. 16)),
+                u32::from_be_bytes(from_fn(|i| chunk[i])),
+                u32::from_be_bytes(from_fn(|i| chunk[i + 4])),
+                u32::from_be_bytes(from_fn(|i| chunk[i + 8])),
+                u32::from_be_bytes(from_fn(|i| chunk[i + 12])),
             ])
         });
 
