@@ -9,7 +9,7 @@ macro_rules! array_range {
 }
 
 fn rust_decompress(compressed: &[u8], decompressed: &mut [u8]) {
-    oodle::decompress(compressed, decompressed, None, None).unwrap();
+    oodle::decompress(compressed, decompressed, false, 0).unwrap();
 }
 
 fn ffi_decompress(compressed: &[u8], decompressed: &mut [u8]) {

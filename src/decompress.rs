@@ -1,5 +1,3 @@
-use std::slice;
-
 use const_format::concatcp;
 
 use crate::BLOCK_LEN;
@@ -13,7 +11,7 @@ use crate::error::{Error, Result};
 /// * `compressed` - The data to be decompressed.
 /// * `decompressed` - The buffer to write the decompressed data.
 /// * `check_crc` - Whether to check the CRC of the decompressed data.
-/// * `dictionary_base` - The base dictionary to use for decompression.
+/// * `dictionary_len` - The length of the dictionary to use for decompression.
 ///
 /// # Returns
 ///
@@ -21,54 +19,30 @@ use crate::error::{Error, Result};
 ///
 /// # Notes
 ///
-/// `decompressed` must be the actual size of the decompressed data.
+/// A dictionary base can be provided within the `decompressed` buffer
+/// at [0..dictionary_len].
 ///
-/// By default, `check_crc` is disabled and corruption is not checked.
-/// If enabled, the decode will abort if corruption is detected.
+/// `decompressed.len() - dictionary_len` must be the actual size of the
+/// decompressed data.
 ///
-/// `dictionary_base` must be contiguous with `decompressed`.
+/// If `check_crc` is true, the decoder will abort if corruption is detected.
 pub fn decompress(
     compressed: &[u8],
     decompressed: &mut [u8],
-    check_crc: Option<bool>,
-    dictionary_base: Option<&mut [u8]>,
+    check_crc: bool,
+    mut dictionary_len: usize,
 ) -> Result<usize> {
     // If the decompressed buffer is empty, return an error
     if decompressed.len() == 0 {
         return Err(Error::EmptyBuffer("decompressed buffer is empty"));
     }
 
-    let check_crc = check_crc.unwrap_or(false);
-
-    // If dictionary_base is not provided, use decompressed as the dictionary
-    let (decompressed, mut dictionary_len) = match dictionary_base {
-        Some(dict) => {
-            let dict_len = dict.len();
-
-            // Ensure dictionary_base is contiguous with decompressed
-            // This is mandatory since we call functions from the Oodle library
-            if dict.as_ptr() as usize + dict_len != decompressed.as_mut_ptr() as usize {
-                return Err(Error::InvalidDictionaryBase(concatcp!(
-                    "dictionary base must be contiguous with decompressed"
-                )));
-            }
-
-            // If decode_start_offset is not a multiple of BLOCK_LEN, it's an almost guaranteed failure.
-            if dict_len % BLOCK_LEN != 0 {
-                return Err(Error::InvalidDictionaryLength(concatcp!(
-                    "dictionary length must be a multiple of ",
-                    BLOCK_LEN
-                )));
-            }
-
-            let combined = unsafe {
-                slice::from_raw_parts_mut(dict.as_mut_ptr(), dict_len + decompressed.len())
-            };
-
-            (combined, dict_len)
-        }
-        None => (decompressed, 0),
-    };
+    if dictionary_len % BLOCK_LEN != 0 {
+        return Err(Error::InvalidDictionaryLength(concatcp!(
+            "dictionary length must be a multiple of ",
+            BLOCK_LEN
+        )));
+    }
 
     let decode_start_offset = dictionary_len;
 

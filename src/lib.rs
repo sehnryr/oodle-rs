@@ -91,7 +91,7 @@ mod tests {
                 let mut decompressed = vec![0; decompressed_len];
 
                 let result =
-                    crate::decompress::decompress(&compressed, &mut decompressed, None, None)
+                    crate::decompress::decompress(&compressed, &mut decompressed, false, 0)
                         .expect("Decompression failed");
 
                 assert!(
