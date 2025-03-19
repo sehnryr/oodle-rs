@@ -1,12 +1,7 @@
+use std::array::from_fn;
 use std::time::Duration;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-
-macro_rules! array_range {
-    ($bytes:expr, $start:expr; .. $end:expr) => {
-        ::core::array::from_fn::<_, { $end - $start }, _>(|i| $bytes[$start + i])
-    };
-}
 
 fn rust_decompress(compressed: &[u8], decompressed: &mut [u8]) {
     oodle::decompress(compressed, decompressed, false, 0).unwrap();
@@ -39,12 +34,12 @@ fn benchmark(c: &mut Criterion) {
     let (compressed, decompressed_len) = if compressed[4] == 0x8C {
         (
             &compressed[4..],
-            u32::from_le_bytes(array_range!(compressed, 0; .. 4)) as usize,
+            u32::from_le_bytes(from_fn::<_, 4, _>(|i| compressed[i])) as usize,
         )
     } else {
         (
             &compressed[8..],
-            u64::from_le_bytes(array_range!(compressed, 0; .. 8)) as usize,
+            u64::from_le_bytes(from_fn::<_, 8, _>(|i| compressed[i])) as usize,
         )
     };
 
