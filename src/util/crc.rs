@@ -10,14 +10,19 @@ pub(crate) fn compute_crc(data: &[u8]) -> u32 {
 
 macro_rules! mix {
     ($a:expr, $b:expr, $c:expr) => {
-        mix!(; $a, $b, $c, 4);
-        mix!(; $b, $c, $a, 6);
-        mix!(; $c, $a, $b, 8);
-        mix!(; $a, $b, $c, 16);
-        mix!(; $b, $c, $a, 19);
-        mix!(; $c, $a, $b, 4);
+        mix!(@process $a, $b, $c; 4, 6, 8, 16, 19, 4)
     };
-    (; $a:expr, $b:expr, $c:expr, $shift:expr) => {
+
+    // Base case: no shift values provided
+    (@process $a:expr, $b:expr, $c:expr;) => {};
+
+    // Recursive case: call the step rule and rotate the state for the next shift values
+    (@process $a:expr, $b:expr, $c:expr; $first:expr $(, $rest:expr )*) => {
+        mix!(@step $a, $b, $c, $first);
+        mix!(@process $b, $c, $a; $($rest),*);
+    };
+
+    (@step $a:expr, $b:expr, $c:expr, $shift:expr) => {
         $a = $a.wrapping_sub($c);
         $a ^= $c.rotate_left($shift);
         $c = $c.wrapping_add($b);
@@ -26,15 +31,19 @@ macro_rules! mix {
 
 macro_rules! final_mix {
     ($a:expr, $b:expr, $c:expr) => {
-        final_mix!(; $c, $b, 14);
-        final_mix!(; $a, $c, 11);
-        final_mix!(; $b, $a, 25);
-        final_mix!(; $c, $b, 16);
-        final_mix!(; $a, $c, 4);
-        final_mix!(; $b, $a, 14);
-        final_mix!(; $c, $b, 24);
+        final_mix!(@process $c, $a, $b; 14, 11, 25, 16, 4, 14, 24)
     };
-    (; $a:expr, $c:expr, $shift:expr) => {
+
+    // Base case: no shift values provided
+    (@process $a:expr, $b:expr, $c:expr;) => {};
+
+    // Recursive case: call the step rule and rotate the state for the next shift values
+    (@process $a:expr, $b:expr, $c:expr; $first:expr $(, $rest:expr )*) => {
+        final_mix!(@step $a, $b, $c, $first);
+        final_mix!(@process $b, $c, $a; $($rest),*);
+    };
+
+    (@step $a:expr, $b:expr, $c:expr, $shift:expr) => {
         $a ^= $c;
         $a = $a.wrapping_sub($c.rotate_left($shift));
     }
