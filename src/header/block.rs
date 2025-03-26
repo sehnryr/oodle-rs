@@ -1,5 +1,8 @@
 use crate::BLOCK_HEADER_BYTES_MAX;
-use crate::error::{Error, Result};
+use crate::error::{
+    Error,
+    Result,
+};
 use crate::model::Compressor;
 
 #[derive(Debug)]

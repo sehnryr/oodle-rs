@@ -3,10 +3,19 @@ use std::hint::cold_path;
 
 use crate::BLOCK_LEN;
 use crate::bindings::root::oo2::*;
-use crate::error::{Error, Result};
-use crate::header::{BlockHeader, QuantumHeader};
+use crate::error::{
+    Error,
+    Result,
+};
+use crate::header::{
+    BlockHeader,
+    QuantumHeader,
+};
 use crate::model::Compressor;
-use crate::util::compression::{compressor_scratch_memory_size, get_all_chunks_compressor};
+use crate::util::compression::{
+    compressor_scratch_memory_size,
+    get_all_chunks_compressor,
+};
 use crate::util::crc::compute_crc;
 
 pub struct Decoder<'a> {
@@ -69,9 +78,9 @@ impl<'a> Decoder<'a> {
         let chunk_pos = self.decompressed_pos % BLOCK_LEN; // ?
         let raw_len_left = self.decompressed.len() - self.decompressed_pos;
 
-        // Since `self.dictionary_len` is the same as `self.decompressed.len()` when the dictionary
-        // base is not provided, is there a difference between the two?
-        // Can we use `self.decompressed.len()` instead?
+        // Since `self.dictionary_len` is the same as `self.decompressed.len()` when the
+        // dictionary base is not provided, is there a difference between the
+        // two? Can we use `self.decompressed.len()` instead?
 
         raw_bytes_to_go = raw_bytes_to_go.min(BLOCK_LEN - chunk_pos);
         raw_bytes_to_go = raw_bytes_to_go.min(raw_len_left);

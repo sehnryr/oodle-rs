@@ -20,10 +20,9 @@ mod header;
 mod model;
 mod util;
 
-pub use crate::model::*;
-
 pub use crate::compress::compress;
 pub use crate::decompress::decompress;
+pub use crate::model::*;
 pub use crate::util::compression::get_compressed_buffer_size_hint;
 
 const CHUNK_LEN: usize = 128 * 1024;

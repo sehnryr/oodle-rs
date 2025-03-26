@@ -1,5 +1,8 @@
 use crate::bindings::root::oo2::*;
-use crate::error::{Error, Result};
+use crate::error::{
+    Error,
+    Result,
+};
 use crate::model::*;
 
 impl TryFrom<OodleLZ_Compressor> for Compressor {

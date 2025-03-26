@@ -2,7 +2,10 @@ use const_format::concatcp;
 
 use crate::BLOCK_LEN;
 use crate::decoder::Decoder;
-use crate::error::{Error, Result};
+use crate::error::{
+    Error,
+    Result,
+};
 
 /// Decompress some data from memory to memory synchronously.
 ///

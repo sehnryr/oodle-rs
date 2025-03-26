@@ -1,5 +1,8 @@
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 
 fn is_cpp<P: AsRef<Path>>(path: P) -> bool {
     path.as_ref().extension().map_or(false, |ext| ext == "cpp")

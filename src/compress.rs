@@ -1,6 +1,13 @@
 use crate::bindings::root::oo2::*;
-use crate::error::{Error, Result};
-use crate::model::{CompressOptions, CompressionLevel, Compressor};
+use crate::error::{
+    Error,
+    Result,
+};
+use crate::model::{
+    CompressOptions,
+    CompressionLevel,
+    Compressor,
+};
 
 /// Compress some data from memory to memory synchronously.
 ///
@@ -10,7 +17,8 @@ use crate::model::{CompressOptions, CompressionLevel, Compressor};
 /// * `compressed` - The buffer to store the compressed data.
 /// * `compressor` - The compressor to use.
 /// * `level` - The compression level to use.
-/// * `compress_options` - The compression options to use. See [`CompressOptions`] for more details.
+/// * `compress_options` - The compression options to use. See
+///   [`CompressOptions`] for more details.
 /// * `dictionary_len` - The length of the base dictionary.
 ///
 /// # Returns

@@ -19,7 +19,8 @@ pub enum CompressionLevel {
     Optimal3,
     /// Optimal parse level 4 (very slow optimal encoder)
     Optimal4,
-    /// Optimal parse level 5 (don't care about encode speed, maximum compression)
+    /// Optimal parse level 5 (don't care about encode speed, maximum
+    /// compression)
     Optimal5,
 
     /// Faster than SuperFast, less compression
@@ -35,10 +36,10 @@ pub enum CompressionLevel {
 impl CompressionLevel {
     /// Alias for HyperFast1
     pub const HYPER_FAST: CompressionLevel = CompressionLevel::HyperFast1;
-    /// Alias for Optimal2
-    pub const OPTIMAL: CompressionLevel = CompressionLevel::Optimal2;
     /// Alias for Optimal5
     pub const MAX: CompressionLevel = CompressionLevel::Optimal5;
     /// Alias for HyperFast4
     pub const MIN: CompressionLevel = CompressionLevel::HyperFast4;
+    /// Alias for Optimal2
+    pub const OPTIMAL: CompressionLevel = CompressionLevel::Optimal2;
 }

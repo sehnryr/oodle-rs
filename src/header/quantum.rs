@@ -1,4 +1,7 @@
-use crate::error::{Error, Result};
+use crate::error::{
+    Error,
+    Result,
+};
 
 const FLAG_SHIFT: usize = 18;
 const FLAG_SPECIAL_WHOLEMATCH: u32 = 0;

@@ -1,13 +1,23 @@
 use std::array::from_fn;
 use std::time::Duration;
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{
+    Criterion,
+    criterion_group,
+    criterion_main,
+};
 
-fn rust_decompress(compressed: &[u8], decompressed: &mut [u8]) {
+fn rust_decompress(
+    compressed: &[u8],
+    decompressed: &mut [u8],
+) {
     oodle::decompress(compressed, decompressed, false, 0).unwrap();
 }
 
-fn ffi_decompress(compressed: &[u8], decompressed: &mut [u8]) {
+fn ffi_decompress(
+    compressed: &[u8],
+    decompressed: &mut [u8],
+) {
     unsafe {
         oodle_sys::OodleLZ_Decompress(
             compressed.as_ptr() as *const _,

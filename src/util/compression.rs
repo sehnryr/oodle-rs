@@ -1,9 +1,21 @@
-use crate::error::{Error, Result};
-use crate::header::{BlockHeader, QuantumHeader};
+use crate::error::{
+    Error,
+    Result,
+};
+use crate::header::{
+    BlockHeader,
+    QuantumHeader,
+};
 use crate::model::Compressor;
 use crate::{
-    ARRAY_INTERNAL_MAX_SCRATCH, BLOCK_HEADER_BYTES_MAX, BLOCK_LEN, CHUNK_HEADER_SIZE, CHUNK_LEN,
-    MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ, QUANTUM_HEADER_MAX_SIZE, SCRATCH_ALIGNMENT_PAD,
+    ARRAY_INTERNAL_MAX_SCRATCH,
+    BLOCK_HEADER_BYTES_MAX,
+    BLOCK_LEN,
+    CHUNK_HEADER_SIZE,
+    CHUNK_LEN,
+    MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ,
+    QUANTUM_HEADER_MAX_SIZE,
+    SCRATCH_ALIGNMENT_PAD,
 };
 
 /// Get the compressed buffer size hint.

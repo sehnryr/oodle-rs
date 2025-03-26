@@ -53,7 +53,7 @@ macro_rules! final_mix {
 fn big_hash(data: &[u8]) -> u64 {
     let length = data.len() as u32;
 
-    let mut a = Vec4D::splat(0xdeadbeef_u32.wrapping_add(length));
+    let mut a = Vec4D::splat(0xDEADBEEF_u32.wrapping_add(length));
     let mut b = Vec4D::splat(0x206F85B3_u32);
     let mut c = Vec4D::splat(0x5768B525_u32.wrapping_sub(length));
 

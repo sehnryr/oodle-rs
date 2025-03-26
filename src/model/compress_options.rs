@@ -14,26 +14,27 @@ pub struct CompressOptions {
     pub(crate) seek_chunk_len: i32,
     /// Decoder profile to target.
     pub(crate) profile: Profile,
-    /// Sets a maximum offset for matches, if lower than the maximum the format supports.
-    /// <= 0 means infinite (use whole buffer). Often power of 2 but doesn't have to be.
+    /// Sets a maximum offset for matches, if lower than the maximum the format
+    /// supports. <= 0 means infinite (use whole buffer). Often power of 2
+    /// but doesn't have to be.
     pub(crate) dictionary_size: i32,
     /// This is a number of bytes.
     /// I must gain at least this many bytes of compressed size to accept
     /// a speed-decreasing decision.
     pub(crate) space_speed_tradeoff_bytes: i32,
-    /// Should the encoder send a CRC of each compressed quantum, for integrity checks.
-    /// This is necessary if you want to use `check_crc` on decode.
+    /// Should the encoder send a CRC of each compressed quantum, for integrity
+    /// checks. This is necessary if you want to use `check_crc` on decode.
     pub(crate) send_quantum_crcs: bool,
     /// Size of local dictionary before needing a long range matcher.
     /// This does not set a window size for the decoder.
     /// It's useful to limit memory use and time taken in the encoder.
     /// `max_local_dictionary_size` must be a power of 2. Must be <= 1<<30.
     pub(crate) max_local_dictionary_size: i32,
-    /// Should the encoder find matches beyond `max_local_dictionary_size` using an LRM
-    /// (long range matcher)?
+    /// Should the encoder find matches beyond `max_local_dictionary_size` using
+    /// an LRM (long range matcher)?
     pub(crate) make_long_range_matcher: bool,
-    /// When variable, sets the size of the match finder structure (often a hash table).
-    /// Use 0 for the compressor's default.
+    /// When variable, sets the size of the match finder structure (often a hash
+    /// table). Use 0 for the compressor's default.
     pub(crate) match_table_size_log2: i32,
     /// Far matches must be at least this len.
     pub(crate) far_match_min_len: i32,
@@ -62,78 +63,112 @@ impl Default for CompressOptions {
 
 impl CompressOptions {
     /// Creates a new `CompressOptions` instance with default values.
-    pub fn new() -> Self {
-        Self::default()
-    }
+    pub fn new() -> Self { Self::default() }
 
     /// Sets the minimum match length.
-    pub fn min_match_len(mut self, min_match_len: i32) -> Self {
+    pub fn min_match_len(
+        mut self,
+        min_match_len: i32,
+    ) -> Self {
         self.min_match_len = min_match_len;
         self
     }
 
     /// Enables or disables seeking chunk reset.
-    pub fn seek_chunk_reset(mut self, seek_chunk_reset: bool) -> Self {
+    pub fn seek_chunk_reset(
+        mut self,
+        seek_chunk_reset: bool,
+    ) -> Self {
         self.seek_chunk_reset = seek_chunk_reset;
         self
     }
 
     /// Sets the length of the seeking chunk.
-    pub fn seek_chunk_len(mut self, seek_chunk_len: i32) -> Self {
+    pub fn seek_chunk_len(
+        mut self,
+        seek_chunk_len: i32,
+    ) -> Self {
         self.seek_chunk_len = seek_chunk_len;
         self
     }
 
     /// Sets the profile.
-    pub fn profile(mut self, profile: Profile) -> Self {
+    pub fn profile(
+        mut self,
+        profile: Profile,
+    ) -> Self {
         self.profile = profile;
         self
     }
 
     /// Sets the dictionary size.
-    pub fn dictionary_size(mut self, dictionary_size: i32) -> Self {
+    pub fn dictionary_size(
+        mut self,
+        dictionary_size: i32,
+    ) -> Self {
         self.dictionary_size = dictionary_size;
         self
     }
 
     /// Sets the space-speed tradeoff bytes.
-    pub fn space_speed_tradeoff_bytes(mut self, space_speed_tradeoff_bytes: i32) -> Self {
+    pub fn space_speed_tradeoff_bytes(
+        mut self,
+        space_speed_tradeoff_bytes: i32,
+    ) -> Self {
         self.space_speed_tradeoff_bytes = space_speed_tradeoff_bytes;
         self
     }
 
     /// Sets whether to send quantum CRCs.
-    pub fn send_quantum_crcs(mut self, send_quantum_crcs: bool) -> Self {
+    pub fn send_quantum_crcs(
+        mut self,
+        send_quantum_crcs: bool,
+    ) -> Self {
         self.send_quantum_crcs = send_quantum_crcs;
         self
     }
 
     /// Sets the maximum local dictionary size.
-    pub fn max_local_dictionary_size(mut self, max_local_dictionary_size: i32) -> Self {
+    pub fn max_local_dictionary_size(
+        mut self,
+        max_local_dictionary_size: i32,
+    ) -> Self {
         self.max_local_dictionary_size = max_local_dictionary_size;
         self
     }
 
     /// Sets whether to make a long-range matcher.
-    pub fn make_long_range_matcher(mut self, make_long_range_matcher: bool) -> Self {
+    pub fn make_long_range_matcher(
+        mut self,
+        make_long_range_matcher: bool,
+    ) -> Self {
         self.make_long_range_matcher = make_long_range_matcher;
         self
     }
 
     /// Sets the match table size log2.
-    pub fn match_table_size_log2(mut self, match_table_size_log2: i32) -> Self {
+    pub fn match_table_size_log2(
+        mut self,
+        match_table_size_log2: i32,
+    ) -> Self {
         self.match_table_size_log2 = match_table_size_log2;
         self
     }
 
     /// Sets the far match minimum length.
-    pub fn far_match_min_len(mut self, far_match_min_len: i32) -> Self {
+    pub fn far_match_min_len(
+        mut self,
+        far_match_min_len: i32,
+    ) -> Self {
         self.far_match_min_len = far_match_min_len;
         self
     }
 
     /// Sets the far match offset log2.
-    pub fn far_match_offset_log2(mut self, far_match_offset_log2: i32) -> Self {
+    pub fn far_match_offset_log2(
+        mut self,
+        far_match_offset_log2: i32,
+    ) -> Self {
         self.far_match_offset_log2 = far_match_offset_log2;
         self
     }
