@@ -1,5 +1,6 @@
 /src/bindings.rs
 /target
+Cargo.lock
 
 # C++ LSP configuration
 .clangd
