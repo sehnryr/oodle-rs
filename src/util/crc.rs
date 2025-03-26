@@ -8,45 +8,46 @@ pub(crate) fn compute_crc(data: &[u8]) -> u32 {
     (crc & 0xFFFFFF) as u32
 }
 
-macro_rules! mix {
-    ($a:expr, $b:expr, $c:expr) => {
-        mix!(@process $a, $b, $c; 4, 6, 8, 16, 19, 4)
-    };
-
+macro_rules! process {
     // Base case: no shift values provided
-    (@process $a:expr, $b:expr, $c:expr;) => {};
+    (@process $mix:ident; $a:expr, $b:expr, $c:expr;) => {};
 
     // Recursive case: call the step rule and rotate the state for the next shift values
-    (@process $a:expr, $b:expr, $c:expr; $first:expr $(, $rest:expr )*) => {
-        mix!(@step $a, $b, $c, $first);
-        mix!(@process $b, $c, $a; $($rest),*);
+    (@process $mix:ident; $a:expr, $b:expr, $c:expr; $first:expr $(, $rest:expr )*) => {
+        $mix!(@step $a, $b, $c, $first);
+        process!(@process $mix; $b, $c, $a; $($rest),*);
+    };
+}
+
+macro_rules! mix {
+    ($a:expr, $b:expr, $c:expr) => {
+        process! {
+            @process mix;
+            $a, $b, $c;
+            4, 6, 8, 16, 19, 4
+        }
     };
 
     (@step $a:expr, $b:expr, $c:expr, $shift:expr) => {
         $a = $a.wrapping_sub($c);
         $a ^= $c.rotate_left($shift);
         $c = $c.wrapping_add($b);
-    }
+    };
 }
 
 macro_rules! final_mix {
     ($a:expr, $b:expr, $c:expr) => {
-        final_mix!(@process $c, $a, $b; 14, 11, 25, 16, 4, 14, 24)
-    };
-
-    // Base case: no shift values provided
-    (@process $a:expr, $b:expr, $c:expr;) => {};
-
-    // Recursive case: call the step rule and rotate the state for the next shift values
-    (@process $a:expr, $b:expr, $c:expr; $first:expr $(, $rest:expr )*) => {
-        final_mix!(@step $a, $b, $c, $first);
-        final_mix!(@process $b, $c, $a; $($rest),*);
+        process! {
+            @process final_mix;
+            $c, $a, $b;
+            14, 11, 25, 16, 4, 14, 24
+        }
     };
 
     (@step $a:expr, $b:expr, $c:expr, $shift:expr) => {
         $a ^= $c;
         $a = $a.wrapping_sub($c.rotate_left($shift));
-    }
+    };
 }
 
 fn big_hash(data: &[u8]) -> u64 {
