@@ -1,9 +1,10 @@
 [package]
 name = "oodle"
 repository = "https://github.com/sehnryr/oodle-rs"
-description = "A Rust wrapper for the Oodle compression library (to be reimplemented)"
+description = "A reimplementation of the Oodle compression library"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 publish = false
 keywords = ["oodle", "compression"]
 categories = ["compression"]
