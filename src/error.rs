@@ -71,4 +71,8 @@ pub enum Error {
     /// Decompression error.
     #[error("Decompression error: {0}")]
     DecompressionError(String),
+
+    /// Invalid chunk type.
+    #[error("Invalid chunk type: {0}")]
+    InvalidChunkType(usize),
 }

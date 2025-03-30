@@ -63,7 +63,7 @@ fn main() {
                 .iter()
                 .map(|dir| format!("-I{}", dir.display())),
         )
-        .header(oodle_dir.join("core/rrbighash.h").to_string_lossy())
+        .header(oodle_dir.join("core/newlz.cpp").to_string_lossy())
         .header(oodle_dir.join("core/oodlelzpub.h").to_string_lossy())
         .header(
             oodle_dir
@@ -77,6 +77,8 @@ fn main() {
         .allowlist_function("oo2::Kraken_DecodeOneQuantum")
         .allowlist_function("oo2::Mermaid_DecodeOneQuantum")
         .allowlist_function("oo2::Leviathan_DecodeOneQuantum")
+        .allowlist_function("oo2::newLZ_decode_chunk_phase1")
+        .allowlist_function("oo2::newLZ_decode_chunk_phase2")
         // Define Oodle usage
         .clang_arg("-DOODLE_BUILDING_LIB")
         // Force C++ mode

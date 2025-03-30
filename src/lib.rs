@@ -26,6 +26,7 @@ pub use crate::model::*;
 pub use crate::util::compression::get_compressed_buffer_size_hint;
 
 const CHUNK_LEN: usize = 128 * 1024;
+const MIN_CHUNK_LEN: usize = 128;
 const BLOCK_LEN: usize = 1 << 18;
 const BLOCK_HEADER_BYTES_MAX: usize = 2;
 const QUANTUM_HEADER_MAX_SIZE: usize = 16;
