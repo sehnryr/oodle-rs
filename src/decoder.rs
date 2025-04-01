@@ -1,7 +1,10 @@
 #[cfg(feature = "cold_path")]
 use std::hint::cold_path;
 
-use crate::bindings::root::oo2::*;
+use crate::BLOCK_LEN;
+use crate::decode::newlz::decode_one as newlz_decode_one;
+use crate::decode::newlzf::decode_one as newlzf_decode_one;
+use crate::decode::newlzhc::decode_one as newlzhc_decode_one;
 use crate::error::{
     Error,
     Result,
@@ -16,11 +19,6 @@ use crate::util::compression::{
     get_all_chunks_compressor,
 };
 use crate::util::crc::compute_crc;
-use crate::{
-    BLOCK_LEN,
-    CHUNK_LEN,
-    MIN_CHUNK_LEN,
-};
 
 pub struct Decoder<'a> {
     compressor: Compressor,
@@ -204,7 +202,7 @@ impl<'a> Decoder<'a> {
         let mut scratch = vec![0u8; scratch_size];
 
         let read_bytes = match header.compressor {
-            Compressor::Kraken => kraken_decode_one_quantum(
+            Compressor::Kraken => newlz_decode_one(
                 &self.compressed
                     [self.compressed_pos..self.compressed_pos + quantum_header.compressed_len],
                 &mut self.decompressed
@@ -212,7 +210,7 @@ impl<'a> Decoder<'a> {
                 pos_since_reset,
                 &mut scratch,
             )?,
-            Compressor::Leviathan => leviathan_decode_one_quantum(
+            Compressor::Mermaid => newlzf_decode_one(
                 &self.compressed
                     [self.compressed_pos..self.compressed_pos + quantum_header.compressed_len],
                 &mut self.decompressed
@@ -220,7 +218,7 @@ impl<'a> Decoder<'a> {
                 pos_since_reset,
                 &mut scratch,
             )?,
-            Compressor::Mermaid => mermaid_decode_one_quantum(
+            Compressor::Leviathan => newlzhc_decode_one(
                 &self.compressed
                     [self.compressed_pos..self.compressed_pos + quantum_header.compressed_len],
                 &mut self.decompressed
@@ -254,215 +252,4 @@ impl<'a> Decoder<'a> {
 
         Ok(())
     }
-}
-
-fn kraken_decode_one_quantum(
-    compressed: &[u8],
-    decompressed: &mut [u8],
-    pos_since_reset: usize,
-    scratch: &mut [u8],
-) -> Result<usize> {
-    debug_assert!(decompressed.len() <= BLOCK_LEN);
-
-    let mut compressed_pos = 0;
-    let mut decompressed_pos = 0;
-
-    while decompressed_pos < decompressed.len() {
-        let chunk_len = (decompressed.len() - decompressed_pos).min(CHUNK_LEN);
-        let chunk_pos = decompressed_pos + pos_since_reset;
-
-        debug_assert!(chunk_len > 0);
-        debug_assert!(chunk_len <= CHUNK_LEN);
-
-        // Minimum length of a chunk is 4 bytes:
-        // - 3 bytes for the header
-        // - 1 byte for the payload
-        if compressed.len() - compressed_pos < 4 {
-            return Err(Error::InvalidCompressedData(
-                "Not enough data to read chunk header",
-            ));
-        }
-
-        let mut chunk_compressed_len = u32::from_be_bytes([
-            0,
-            compressed[compressed_pos],
-            compressed[compressed_pos + 1],
-            compressed[compressed_pos + 2],
-        ]) as usize;
-        debug_assert!(chunk_compressed_len >= 1 << 23);
-
-        let chunk_type = match chunk_compressed_len >> 19 & 0xF {
-            chunk_type @ (0 | 1) => chunk_type,
-            _ => return Err(Error::InvalidCompressedData("Invalid chunk type")),
-        };
-        chunk_compressed_len &= (1 << 19) - 1;
-
-        compressed_pos += 3;
-
-        if chunk_compressed_len > compressed.len() - compressed_pos {
-            return Err(Error::InvalidCompressedData(
-                "Chunk compressed length exceeds available data",
-            ));
-        }
-        if chunk_compressed_len > chunk_len {
-            return Err(Error::InvalidCompressedData(
-                "Chunk compressed length exceeds chunk length",
-            ));
-        }
-
-        // Raw chunk
-        if chunk_compressed_len == chunk_len {
-            if chunk_type != 0 {
-                return Err(Error::InvalidCompressedData("Chunk type is not raw"));
-            }
-
-            decompressed[decompressed_pos..decompressed_pos + chunk_len]
-                .copy_from_slice(&compressed[compressed_pos..compressed_pos + chunk_len]);
-        } else {
-            if chunk_len < MIN_CHUNK_LEN {
-                return Err(Error::InvalidCompressedData("Chunk length is too short"));
-            }
-
-            debug_assert!(
-                scratch.len() >= compressor_scratch_memory_size(Compressor::Kraken, chunk_len)
-            );
-
-            // This is normally created from the scratch memory,
-            // but I don't want to use scratch memory for this rust reimplementation
-            let mut chunk_arrays = newLZ_chunk_arrays {
-                chunk_ptr: std::ptr::null_mut(),
-                scratch_ptr: std::ptr::null_mut(),
-                offsets: std::ptr::null_mut(),
-                offsets_count: 0,
-                excesses: std::ptr::null_mut(),
-                excesses_count: 0,
-                packets: std::ptr::null_mut(),
-                packets_count: 0,
-                literals_ptr: std::ptr::null_mut(),
-                literals_count: 0,
-            };
-
-            unsafe {
-                let compressed_ptr = compressed.as_ptr().add(compressed_pos);
-                let decompressed_ptr = decompressed.as_mut_ptr().add(decompressed_pos);
-                let scratch_ptr = scratch.as_mut_ptr();
-
-                newLZ_decode_chunk_phase1(
-                    chunk_type as i32,
-                    compressed_ptr,
-                    compressed_ptr.add(chunk_compressed_len),
-                    decompressed_ptr,
-                    chunk_len as isize,
-                    chunk_pos as isize,
-                    scratch_ptr,
-                    scratch_ptr.add(scratch.len()),
-                    &mut chunk_arrays,
-                ) as usize;
-
-                debug_assert!(chunk_arrays.chunk_ptr == decompressed_ptr);
-                debug_assert!(chunk_arrays.scratch_ptr == scratch_ptr);
-
-                newLZ_decode_chunk_phase2(
-                    chunk_type as i32,
-                    decompressed_ptr,
-                    chunk_len as isize,
-                    chunk_pos as isize,
-                    &mut chunk_arrays,
-                );
-            };
-        }
-
-        compressed_pos += chunk_compressed_len;
-        decompressed_pos += chunk_len;
-    }
-
-    Ok(compressed_pos)
-}
-
-fn leviathan_decode_one_quantum(
-    compressed: &[u8],
-    decompressed: &mut [u8],
-    pos_since_reset: usize,
-    scratch: &mut [u8],
-) -> Result<usize> {
-    let base_decompressed_ptr = decompressed.as_mut_ptr();
-    let decompressed_ptr = base_decompressed_ptr.clone();
-
-    let read_bytes = unsafe {
-        Leviathan_DecodeOneQuantum(
-            decompressed_ptr,
-            decompressed_ptr.add(decompressed.len()),
-            compressed.as_ptr(),
-            compressed.len() as i32,
-            compressed.as_ptr().add(compressed.len()),
-            pos_since_reset as isize,
-            scratch.as_mut_ptr() as *mut _,
-            scratch.len() as isize,
-            OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
-        ) as usize
-    };
-
-    if read_bytes == 0 {
-        #[cfg(feature = "cold_path")]
-        cold_path();
-
-        return Err(Error::DecompressionFailed);
-    }
-
-    if read_bytes != compressed.len() {
-        #[cfg(feature = "cold_path")]
-        cold_path();
-
-        return Err(Error::DecompressionError(format!(
-            "Decompressed data does not match header: {} != {}",
-            read_bytes,
-            compressed.len()
-        )));
-    }
-
-    Ok(read_bytes)
-}
-
-fn mermaid_decode_one_quantum(
-    compressed: &[u8],
-    decompressed: &mut [u8],
-    pos_since_reset: usize,
-    scratch: &mut [u8],
-) -> Result<usize> {
-    let base_decompressed_ptr = decompressed.as_mut_ptr();
-    let decompressed_ptr = base_decompressed_ptr.clone();
-
-    let read_bytes = unsafe {
-        Mermaid_DecodeOneQuantum(
-            decompressed_ptr,
-            decompressed_ptr.add(decompressed.len()),
-            compressed.as_ptr(),
-            compressed.len() as i32,
-            compressed.as_ptr().add(compressed.len()),
-            pos_since_reset as isize,
-            scratch.as_mut_ptr() as *mut _,
-            scratch.len() as isize,
-            OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
-        ) as usize
-    };
-
-    if read_bytes == 0 {
-        #[cfg(feature = "cold_path")]
-        cold_path();
-
-        return Err(Error::DecompressionFailed);
-    }
-
-    if read_bytes != compressed.len() {
-        #[cfg(feature = "cold_path")]
-        cold_path();
-
-        return Err(Error::DecompressionError(format!(
-            "Decompressed data does not match header: {} != {}",
-            read_bytes,
-            compressed.len()
-        )));
-    }
-
-    Ok(read_bytes)
 }
