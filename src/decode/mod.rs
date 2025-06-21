@@ -1,3 +1,3 @@
 pub mod newlz;
-pub mod newlzf;
-pub mod newlzhc;
+pub mod newlzf; // fast
+pub mod newlzhc; // high-compression
