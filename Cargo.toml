@@ -19,11 +19,6 @@ thiserror = "2.0.11"
 bindgen = "0.71.1"
 cc = { version = "1.2.15", features = ["parallel"] }
 
-[features]
-default = []
-simd = []
-cold_path = []
-
 [dev-dependencies]
 criterion = "0.5.1"
 oodle-sys = "0.2.0"

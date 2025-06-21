@@ -28,16 +28,10 @@ pub fn decode_one(
     };
 
     if read_bytes == 0 {
-        #[cfg(feature = "cold_path")]
-        cold_path();
-
         return Err(Error::DecompressionFailed);
     }
 
     if read_bytes != compressed.len() {
-        #[cfg(feature = "cold_path")]
-        cold_path();
-
         return Err(Error::DecompressionError(format!(
             "Decompressed data does not match header: {} != {}",
             read_bytes,

@@ -26,6 +26,23 @@
             (import rust-overlay)
           ];
         };
+
+        stableToolchain = pkgs.lib.hiPrio (
+          pkgs.rust-bin.stable.latest.minimal.override {
+            extensions = [
+              "rust-docs"
+              "clippy"
+              "rust-src"
+            ];
+          }
+        );
+
+        nightlyFmt = pkgs.rust-bin.selectLatestNightlyWith (
+          toolchain:
+          toolchain.minimal.override {
+            extensions = [ "rustfmt" ];
+          }
+        );
       in
       {
         devShells.default = pkgs.mkShell {
@@ -35,14 +52,8 @@
             llvmPackages.libclang
 
             # Rust toolchain
-            (rust-bin.selectLatestNightlyWith (
-              toolchain:
-              toolchain.default.override {
-                extensions = [
-                  "rust-src"
-                ];
-              }
-            ))
+            stableToolchain
+            nightlyFmt
           ];
 
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
