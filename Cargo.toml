@@ -8,8 +8,14 @@ license = "MIT OR Apache-2.0"
 publish = false
 keywords = ["oodle", "compression"]
 categories = ["compression"]
-exclude = ["/oodle-ue/", "/test-data/", "/.*", "/build.rs"]
-include = ["/src/"]
+exclude = [
+    "oodle-ue/",
+    "test-data/",
+    ".*",
+    "build.rs",
+    "flake.*",
+    "rustfmt.toml",
+]
 
 [dependencies]
 const_format = "0.2.34"
