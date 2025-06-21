@@ -1,0 +1,8 @@
+[profile.release]
+opt-level = 3
+debug = false
+strip = "symbols"
+lto = true
+panic = "abort"
+codegen-units = 1
+incremental = false
