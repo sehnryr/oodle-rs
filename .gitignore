@@ -4,3 +4,8 @@ Cargo.lock
 
 # C++ LSP configuration
 .clangd
+
+# Direnv configuration
+.direnv
+.env
+.envrc.local
