@@ -1,6 +1,14 @@
 use std::array::from_fn;
 
-use super::vec::Vec4D;
+use safe_arch::{
+    add_i32_m128i,
+    bitor_m128i,
+    m128i,
+    set_splat_i32_m128i,
+    shl_imm_u32_m128i,
+    shr_imm_u32_m128i,
+    sub_i32_m128i,
+};
 
 pub(crate) fn compute_crc(data: &[u8]) -> u32 {
     let crc = big_hash(data);
@@ -16,6 +24,26 @@ macro_rules! process {
     (@process $mix:ident; $a:expr, $b:expr, $c:expr; $first:expr $(, $rest:expr )*) => {
         $mix!(@step $a, $b, $c, $first);
         process!(@process $mix; $b, $c, $a; $($rest),*);
+    };
+}
+
+macro_rules! mix_m128i {
+    ($a:expr, $b:expr, $c:expr) => {
+        process! {
+            @process mix_m128i;
+            $a, $b, $c;
+            4, 6, 8, 16, 19, 4
+        }
+    };
+
+    (@step $a:expr, $b:expr, $c:expr, $shift:expr) => {
+        $a = sub_i32_m128i($a, $c);
+        $a ^= {
+            let lo = shl_imm_u32_m128i::<{ $shift }>($c);
+            let hi = shr_imm_u32_m128i::<{ 32 - $shift }>($c);
+            bitor_m128i(lo, hi)
+        };
+        $c = add_i32_m128i($c, $b);
     };
 }
 
@@ -53,9 +81,13 @@ macro_rules! final_mix {
 fn big_hash(data: &[u8]) -> u64 {
     let length = data.len() as u32;
 
-    let mut a = Vec4D::splat(0xDEADBEEF_u32.wrapping_add(length));
-    let mut b = Vec4D::splat(0x206F85B3_u32);
-    let mut c = Vec4D::splat(0x5768B525_u32.wrapping_sub(length));
+    let a: u32 = 0xDEADBEEF_u32.wrapping_add(length);
+    let b: u32 = 0x206F85B3_u32;
+    let c: u32 = 0x5768B525_u32.wrapping_sub(length);
+
+    let mut a: m128i = set_splat_i32_m128i(a as i32);
+    let mut b: m128i = set_splat_i32_m128i(b as i32);
+    let mut c: m128i = set_splat_i32_m128i(c as i32);
 
     let exact_chunks = data.chunks_exact(48);
     let remainder = exact_chunks.remainder();
@@ -74,7 +106,7 @@ fn big_hash(data: &[u8]) -> u64 {
 
     while let Some(chunk) = chunks.next() {
         let mut quads = chunk.chunks_exact(16).map(|chunk| {
-            Vec4D::from_array([
+            m128i::from([
                 u32::from_be_bytes(from_fn(|i| chunk[i])),
                 u32::from_be_bytes(from_fn(|i| chunk[i + 4])),
                 u32::from_be_bytes(from_fn(|i| chunk[i + 8])),
@@ -82,11 +114,11 @@ fn big_hash(data: &[u8]) -> u64 {
             ])
         });
 
-        a = a.wrapping_add(quads.next().unwrap());
-        b = b.wrapping_add(quads.next().unwrap());
-        c = c.wrapping_add(quads.next().unwrap());
+        a = add_i32_m128i(a, quads.next().unwrap());
+        b = add_i32_m128i(b, quads.next().unwrap());
+        c = add_i32_m128i(c, quads.next().unwrap());
 
-        mix!(a, b, c);
+        mix_m128i!(a, b, c);
     }
 
     let a: [u32; 4] = a.into();

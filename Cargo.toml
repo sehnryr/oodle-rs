@@ -19,6 +19,7 @@ exclude = [
 
 [dependencies]
 const_format = "0.2.34"
+safe_arch = "0.7.4"
 thiserror = "2.0.11"
 
 [build-dependencies]
