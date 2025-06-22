@@ -9,11 +9,7 @@ fn is_cpp<P: AsRef<Path>>(path: P) -> bool {
 }
 
 fn main() {
-    let oodle_version = "2.9.13";
-    let oodle_dir = PathBuf::from(format!(
-        "oodle-ue/Engine/Source/Runtime/OodleDataCompression/Sdks/{}/src/oodle2",
-        oodle_version
-    ));
+    let oodle_dir = PathBuf::from("oodle/src");
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     let include_dirs = [

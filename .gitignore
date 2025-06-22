@@ -9,3 +9,6 @@ Cargo.lock
 .direnv
 .env
 .envrc.local
+
+# Oodle source
+oodle
