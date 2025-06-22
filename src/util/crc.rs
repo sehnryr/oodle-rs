@@ -203,8 +203,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compute_crc() {
-        let data = b"Hello, world!";
-        assert_eq!(compute_crc(data), 0xEF5D64);
+    fn test_compute_crc_32_bytes() {
+        let data = b"Lorem ipsum dolor sit amet, cons";
+        assert_eq!(compute_crc(data), 0x21AFCD);
+    }
+
+    #[test]
+    fn test_compute_crc_48_bytes() {
+        let data = b"Lorem ipsum dolor sit amet, consectetur adipisci";
+        assert_eq!(compute_crc(data), 0xBC1751);
+    }
+
+    #[test]
+    fn test_compute_crc_64_bytes() {
+        let data = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do ";
+        assert_eq!(compute_crc(data), 0x427779);
     }
 }
