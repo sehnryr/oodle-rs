@@ -3,6 +3,7 @@ use safe_arch::{
     load_unaligned_m128i,
     m128i,
     set_splat_i32_m128i,
+    shuffle_av_i8z_all_m128i,
 };
 
 pub(crate) fn compute_crc(data: &[u8]) -> u32 {
@@ -170,11 +171,7 @@ fn reorder_bytes(
     chunk_b: m128i,
     chunk_c: m128i,
 ) -> (m128i, m128i, m128i) {
-    #[cfg(target_feature = "ssse3")]
-    {
-        use safe_arch::shuffle_av_i8z_all_m128i;
-
-        #[rustfmt::skip]
+    #[rustfmt::skip]
         let mask: m128i = m128i::from([
             3,  2,  1,  0,
             7,  6,  5,  4,
@@ -182,16 +179,11 @@ fn reorder_bytes(
             15, 14, 13, 12u8
         ]);
 
-        let chunk_a = shuffle_av_i8z_all_m128i(chunk_a, mask);
-        let chunk_b = shuffle_av_i8z_all_m128i(chunk_b, mask);
-        let chunk_c = shuffle_av_i8z_all_m128i(chunk_c, mask);
+    let chunk_a = shuffle_av_i8z_all_m128i(chunk_a, mask);
+    let chunk_b = shuffle_av_i8z_all_m128i(chunk_b, mask);
+    let chunk_c = shuffle_av_i8z_all_m128i(chunk_c, mask);
 
-        (chunk_a, chunk_b, chunk_c)
-    }
-    #[cfg(not(target_feature = "ssse3"))]
-    {
-        compile_error!("Implement byte reordering without SSSE3");
-    }
+    (chunk_a, chunk_b, chunk_c)
 }
 
 #[cfg(test)]
