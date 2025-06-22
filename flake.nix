@@ -114,6 +114,16 @@
 
             ln -s ${oodle.help} oodle/help.html
             ln -s ${oodle.src} oodle/src
+
+            cat <<EOF > .clangd
+            CompileFlags:
+              Add:
+                - "--include-directory=${oodle.src}/base"
+                - "--include-directory=${oodle.src}/core/public"
+                - "--include-directory=${oodle.src}/core/templates"
+                - "--include-directory=${oodle.src}/core"
+                - "-DOODLE_BUILDING_LIB"
+            EOF
           '';
         };
       }
