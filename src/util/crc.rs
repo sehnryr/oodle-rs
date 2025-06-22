@@ -1,8 +1,7 @@
-use std::array::from_fn;
-
 use safe_arch::{
     add_i32_m128i,
     bitor_m128i,
+    load_unaligned_m128i,
     m128i,
     set_splat_i32_m128i,
     shl_imm_u32_m128i,
@@ -78,6 +77,7 @@ macro_rules! final_mix {
     };
 }
 
+#[inline(always)]
 fn big_hash(data: &[u8]) -> u64 {
     let length = data.len() as u32;
 
@@ -89,34 +89,30 @@ fn big_hash(data: &[u8]) -> u64 {
     let mut b: m128i = set_splat_i32_m128i(b as i32);
     let mut c: m128i = set_splat_i32_m128i(c as i32);
 
-    let exact_chunks = data.chunks_exact(48);
-    let remainder = exact_chunks.remainder();
+    let chunks_count = data.len() / 48;
+    let remainder = data.len() % 48;
 
-    let last: Box<dyn Iterator<Item = [u8; 48]>> = if remainder.is_empty() {
-        Box::new(std::iter::empty())
-    } else {
+    for i in 0..chunks_count {
+        let offset = i * 48;
+
+        let (chunk_a, chunk_b, chunk_c) = get_chunks(&data[offset..]);
+
+        a = add_i32_m128i(a, chunk_a);
+        b = add_i32_m128i(b, chunk_b);
+        c = add_i32_m128i(c, chunk_c);
+
+        mix_m128i!(a, b, c);
+    }
+
+    if remainder > 0 {
         let mut padded = [0; 48];
-        padded[..remainder.len()].copy_from_slice(remainder);
-        Box::new(std::iter::once(padded))
-    };
+        padded[..remainder].copy_from_slice(&data[chunks_count * 48..]);
 
-    let mut chunks = exact_chunks
-        .map(|chunk| chunk.try_into().unwrap()) // convert slice into array
-        .chain(last);
+        let (chunk_a, chunk_b, chunk_c) = get_chunks(&padded);
 
-    while let Some(chunk) = chunks.next() {
-        let mut quads = chunk.chunks_exact(16).map(|chunk| {
-            m128i::from([
-                u32::from_be_bytes(from_fn(|i| chunk[i])),
-                u32::from_be_bytes(from_fn(|i| chunk[i + 4])),
-                u32::from_be_bytes(from_fn(|i| chunk[i + 8])),
-                u32::from_be_bytes(from_fn(|i| chunk[i + 12])),
-            ])
-        });
-
-        a = add_i32_m128i(a, quads.next().unwrap());
-        b = add_i32_m128i(b, quads.next().unwrap());
-        c = add_i32_m128i(c, quads.next().unwrap());
+        a = add_i32_m128i(a, chunk_a);
+        b = add_i32_m128i(b, chunk_b);
+        c = add_i32_m128i(c, chunk_c);
 
         mix_m128i!(a, b, c);
     }
@@ -147,6 +143,59 @@ fn big_hash(data: &[u8]) -> u64 {
     final_mix!(fa, fb, fc);
 
     (fb as u64) << 32 | fc as u64
+}
+
+/// Extracts 48-byte chunks from input data and converts them to three m128i
+/// vectors.
+#[inline(always)]
+fn get_chunks(data: &[u8]) -> (m128i, m128i, m128i) {
+    debug_assert!(data.len() >= 48);
+
+    // Wrap data slice with parentheses to ensure we call TryFrom<&[T]> for &[T; N]
+    // instead of TryFrom<&[T]> for [T; N] which would copy the bytes rather than
+    // reference the data, which we want to avoid unnecessary memory allocation
+    let chunk_a: &[u8; 16] = (&data[0..16]).try_into().expect("slice is not 16 bytes");
+    let chunk_b: &[u8; 16] = (&data[16..32]).try_into().expect("slice is not 16 bytes");
+    let chunk_c: &[u8; 16] = (&data[32..48]).try_into().expect("slice is not 16 bytes");
+
+    let chunk_a = load_unaligned_m128i(chunk_a);
+    let chunk_b = load_unaligned_m128i(chunk_b);
+    let chunk_c = load_unaligned_m128i(chunk_c);
+
+    reorder_bytes(chunk_a, chunk_b, chunk_c)
+}
+
+/// Reorders bytes in the chunks to match the expected big-endian byte ordering.
+///
+/// The incoming data bytes need to be reordered within each 4-byte group.
+#[inline(always)]
+fn reorder_bytes(
+    chunk_a: m128i,
+    chunk_b: m128i,
+    chunk_c: m128i,
+) -> (m128i, m128i, m128i) {
+    #[cfg(target_feature = "ssse3")]
+    {
+        use safe_arch::shuffle_av_i8z_all_m128i;
+
+        #[rustfmt::skip]
+        let mask: m128i = m128i::from([
+            3,  2,  1,  0,
+            7,  6,  5,  4,
+            11, 10, 9,  8,
+            15, 14, 13, 12u8
+        ]);
+
+        let chunk_a = shuffle_av_i8z_all_m128i(chunk_a, mask);
+        let chunk_b = shuffle_av_i8z_all_m128i(chunk_b, mask);
+        let chunk_c = shuffle_av_i8z_all_m128i(chunk_c, mask);
+
+        (chunk_a, chunk_b, chunk_c)
+    }
+    #[cfg(not(target_feature = "ssse3"))]
+    {
+        compile_error!("Implement byte reordering without SSSE3");
+    }
 }
 
 #[cfg(test)]
