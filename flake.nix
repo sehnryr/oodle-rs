@@ -109,8 +109,8 @@
           shellHook = ''
             mkdir -p oodle
 
-            rm oodle/help.html;
-            rm oodle/src;
+            rm -f oodle/help.html;
+            rm -f oodle/src;
 
             ln -s ${oodle.help} oodle/help.html
             ln -s ${oodle.src} oodle/src
