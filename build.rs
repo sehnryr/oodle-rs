@@ -30,6 +30,7 @@ fn main() {
     cc::Build::new()
         .cpp(true)
         .std("c++20")
+        .opt_level(3)
         .includes(include_dirs.clone())
         .files(cpp_files)
         // Define Oodle usage
