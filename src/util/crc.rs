@@ -1,12 +1,8 @@
 use safe_arch::{
     add_i32_m128i,
-    bitor_m128i,
     load_unaligned_m128i,
     m128i,
     set_splat_i32_m128i,
-    shl_imm_u32_m128i,
-    shr_imm_u32_m128i,
-    sub_i32_m128i,
 };
 
 pub(crate) fn compute_crc(data: &[u8]) -> u32 {
@@ -36,13 +32,13 @@ macro_rules! mix_m128i {
     };
 
     (@step $a:expr, $b:expr, $c:expr, $shift:expr) => {
-        $a = sub_i32_m128i($a, $c);
+        $a = ::safe_arch::sub_i32_m128i($a, $c);
         $a ^= {
-            let lo = shl_imm_u32_m128i::<{ $shift }>($c);
-            let hi = shr_imm_u32_m128i::<{ 32 - $shift }>($c);
-            bitor_m128i(lo, hi)
+            let lo = ::safe_arch::shl_imm_u32_m128i::<{ $shift }>($c);
+            let hi = ::safe_arch::shr_imm_u32_m128i::<{ 32 - $shift }>($c);
+            ::safe_arch::bitor_m128i(lo, hi)
         };
-        $c = add_i32_m128i($c, $b);
+        $c = ::safe_arch::add_i32_m128i($c, $b);
     };
 }
 
