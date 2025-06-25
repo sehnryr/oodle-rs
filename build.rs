@@ -70,7 +70,6 @@ fn main() {
         .rustified_enum(".*")
         .allowlist_recursively(true)
         .allowlist_function("oo2::OodleLZ_Compress")
-        .allowlist_function("oo2::Kraken_DecodeOneQuantum")
         .allowlist_function("oo2::Mermaid_DecodeOneQuantum")
         .allowlist_function("oo2::Leviathan_DecodeOneQuantum")
         .allowlist_function("oo2::newLZ_decode_chunk_phase1")
