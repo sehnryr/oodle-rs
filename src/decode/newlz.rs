@@ -1,4 +1,10 @@
-use crate::bindings::root::oo2::*;
+use core::ptr;
+
+use crate::bindings::root::oo2::{
+    newLZ_chunk_arrays,
+    newLZ_decode_chunk_phase1,
+    newLZ_decode_chunk_phase2,
+};
 use crate::error::{
     Error,
     Result,
@@ -17,7 +23,10 @@ pub fn decode_one(
     pos_since_reset: usize,
     scratch: &mut [u8],
 ) -> Result<usize> {
-    debug_assert!(decompressed.len() <= BLOCK_LEN);
+    debug_assert!(
+        decompressed.len() <= BLOCK_LEN,
+        "decompressed data exceeds block length"
+    );
 
     let mut compressed_pos = 0;
     let mut decompressed_pos = 0;
@@ -25,9 +34,6 @@ pub fn decode_one(
     while decompressed_pos < decompressed.len() {
         let chunk_len = (decompressed.len() - decompressed_pos).min(CHUNK_LEN);
         let chunk_pos = decompressed_pos + pos_since_reset;
-
-        debug_assert!(chunk_len > 0);
-        debug_assert!(chunk_len <= CHUNK_LEN);
 
         // Minimum length of a chunk is 4 bytes:
         // - 3 bytes for the header
@@ -44,11 +50,8 @@ pub fn decode_one(
             compressed[compressed_pos + 1],
             compressed[compressed_pos + 2],
         ]) as usize;
-        debug_assert!(chunk_compressed_len >= 1 << 23);
-
-        let chunk_type = match chunk_compressed_len >> 19 & 0xF {
-            chunk_type @ (0 | 1) => chunk_type,
-            _ => return Err(Error::InvalidCompressedData("Invalid chunk type")),
+        let chunk_type @ (0 | 1) = chunk_compressed_len >> 19 & 0xF else {
+            return Err(Error::InvalidCompressedData("Invalid chunk type"));
         };
         chunk_compressed_len &= (1 << 19) - 1;
 
@@ -79,21 +82,22 @@ pub fn decode_one(
             }
 
             debug_assert!(
-                scratch.len() >= compressor_scratch_memory_size(Compressor::Kraken, chunk_len)
+                scratch.len() >= compressor_scratch_memory_size(Compressor::Kraken, chunk_len),
+                "scratch memory size is too small"
             );
 
             // This is normally created from the scratch memory,
             // but I don't want to use scratch memory for this rust reimplementation
             let mut chunk_arrays = newLZ_chunk_arrays {
-                chunk_ptr: std::ptr::null_mut(),
-                scratch_ptr: std::ptr::null_mut(),
-                offsets: std::ptr::null_mut(),
+                chunk_ptr: ptr::null_mut(),
+                scratch_ptr: ptr::null_mut(),
+                offsets: ptr::null_mut(),
                 offsets_count: 0,
-                excesses: std::ptr::null_mut(),
+                excesses: ptr::null_mut(),
                 excesses_count: 0,
-                packets: std::ptr::null_mut(),
+                packets: ptr::null_mut(),
                 packets_count: 0,
-                literals_ptr: std::ptr::null_mut(),
+                literals_ptr: ptr::null_mut(),
                 literals_count: 0,
             };
 
@@ -135,19 +139,26 @@ fn decode_chunk_phase1(
         let scratch_ptr = scratch.as_mut_ptr();
 
         let result = newLZ_decode_chunk_phase1(
-            chunk_type as i32,
+            i32::try_from(chunk_type).expect("invalid chunk type"),
             compressed_ptr,
             compressed_ptr.add(compressed.len()),
             decompressed_ptr,
-            decompressed.len() as isize,
-            chunk_pos as isize,
+            decompressed.len().cast_signed(),
+            chunk_pos.cast_signed(),
             scratch_ptr,
             scratch_ptr.add(scratch.len()),
             chunk_arrays,
-        ) as usize;
+        )
+        .cast_unsigned();
 
-        debug_assert!(chunk_arrays.chunk_ptr == decompressed_ptr);
-        debug_assert!(chunk_arrays.scratch_ptr == scratch_ptr);
+        debug_assert!(
+            chunk_arrays.chunk_ptr == decompressed_ptr,
+            "chunk_ptr mismatch"
+        );
+        debug_assert!(
+            chunk_arrays.scratch_ptr == scratch_ptr,
+            "scratch_ptr mismatch"
+        );
 
         result
     }
@@ -163,11 +174,12 @@ fn decode_chunk_phase2(
         let decompressed_ptr = decompressed.as_mut_ptr();
 
         newLZ_decode_chunk_phase2(
-            chunk_type as i32,
+            i32::try_from(chunk_type).expect("invalid chunk type"),
             decompressed_ptr,
-            decompressed.len() as isize,
-            chunk_pos as isize,
+            decompressed.len().cast_signed(),
+            chunk_pos.cast_signed(),
             chunk_arrays,
-        ) as usize
+        )
+        .cast_unsigned()
     }
 }

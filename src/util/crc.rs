@@ -6,10 +6,11 @@ use safe_arch::{
     shuffle_av_i8z_all_m128i,
 };
 
-pub(crate) fn compute_crc(data: &[u8]) -> u32 {
+#[inline]
+pub fn compute_crc(data: &[u8]) -> u32 {
     let crc = big_hash(data);
 
-    (crc & 0xFFFFFF) as u32
+    (crc & 0x00FF_FFFF) as u32
 }
 
 macro_rules! process {
@@ -74,17 +75,17 @@ macro_rules! final_mix {
     };
 }
 
-#[inline(always)]
+#[inline]
 fn big_hash(data: &[u8]) -> u64 {
-    let length = data.len() as u32;
+    let length = u32::try_from(data.len()).expect("length overflow");
 
-    let a: u32 = 0xDEADBEEF_u32.wrapping_add(length);
-    let b: u32 = 0x206F85B3_u32;
-    let c: u32 = 0x5768B525_u32.wrapping_sub(length);
+    let a: u32 = 0xDEAD_BEEF_u32.wrapping_add(length);
+    let b: u32 = 0x206F_85B3_u32;
+    let c: u32 = 0x5768_B525_u32.wrapping_sub(length);
 
-    let mut a: m128i = set_splat_i32_m128i(a as i32);
-    let mut b: m128i = set_splat_i32_m128i(b as i32);
-    let mut c: m128i = set_splat_i32_m128i(c as i32);
+    let mut a: m128i = set_splat_i32_m128i(a.cast_signed());
+    let mut b: m128i = set_splat_i32_m128i(b.cast_signed());
+    let mut c: m128i = set_splat_i32_m128i(c.cast_signed());
 
     let chunks_count = data.len() / 48;
     let remainder = data.len() % 48;
@@ -139,14 +140,14 @@ fn big_hash(data: &[u8]) -> u64 {
     fc = fc.wrapping_add(c[3]);
     final_mix!(fa, fb, fc);
 
-    (fb as u64) << 32 | fc as u64
+    u64::from(fb) << 32 | u64::from(fc)
 }
 
 /// Extracts 48-byte chunks from input data and converts them to three m128i
 /// vectors.
-#[inline(always)]
+#[inline]
 fn get_chunks(data: &[u8]) -> (m128i, m128i, m128i) {
-    debug_assert!(data.len() >= 48);
+    debug_assert!(data.len() >= 48, "data should be at least 48 bytes");
 
     // Wrap data slice with parentheses to ensure we call TryFrom<&[T]> for &[T; N]
     // instead of TryFrom<&[T]> for [T; N] which would copy the bytes rather than
@@ -165,19 +166,19 @@ fn get_chunks(data: &[u8]) -> (m128i, m128i, m128i) {
 /// Reorders bytes in the chunks to match the expected big-endian byte ordering.
 ///
 /// The incoming data bytes need to be reordered within each 4-byte group.
-#[inline(always)]
+#[inline]
 fn reorder_bytes(
     chunk_a: m128i,
     chunk_b: m128i,
     chunk_c: m128i,
 ) -> (m128i, m128i, m128i) {
     #[rustfmt::skip]
-        let mask: m128i = m128i::from([
-            3,  2,  1,  0,
-            7,  6,  5,  4,
-            11, 10, 9,  8,
-            15, 14, 13, 12u8
-        ]);
+    let mask: m128i = m128i::from([
+        3,  2,  1,  0,
+        7,  6,  5,  4,
+        11, 10, 9,  8,
+        15, 14, 13, 12_u8
+    ]);
 
     let chunk_a = shuffle_av_i8z_all_m128i(chunk_a, mask);
     let chunk_b = shuffle_av_i8z_all_m128i(chunk_b, mask);
@@ -193,18 +194,18 @@ mod tests {
     #[test]
     fn test_compute_crc_32_bytes() {
         let data = b"Lorem ipsum dolor sit amet, cons";
-        assert_eq!(compute_crc(data), 0x21AFCD);
+        assert_eq!(compute_crc(data), 0x21_AFCD);
     }
 
     #[test]
     fn test_compute_crc_48_bytes() {
         let data = b"Lorem ipsum dolor sit amet, consectetur adipisci";
-        assert_eq!(compute_crc(data), 0xBC1751);
+        assert_eq!(compute_crc(data), 0xBC_1751);
     }
 
     #[test]
     fn test_compute_crc_64_bytes() {
         let data = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do ";
-        assert_eq!(compute_crc(data), 0x427779);
+        assert_eq!(compute_crc(data), 0x42_7779);
     }
 }

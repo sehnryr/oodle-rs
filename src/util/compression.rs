@@ -27,21 +27,22 @@ use crate::{
 /// The minimum size of the compressed buffer to be allocated.
 ///
 /// Note: hint size is likely to be larger than the actual compressed size.
-pub fn get_compressed_buffer_size_hint(decompressed_len: usize) -> usize {
+#[must_use]
+pub const fn get_compressed_buffer_size_hint(decompressed_len: usize) -> usize {
     let mut padding_per_seek_chunk = BLOCK_HEADER_BYTES_MAX + QUANTUM_HEADER_MAX_SIZE;
     padding_per_seek_chunk += CHUNK_HEADER_SIZE * 2;
 
-    let num_seek_chunks = (decompressed_len + BLOCK_LEN - 1) / BLOCK_LEN;
+    let num_seek_chunks = decompressed_len.div_ceil(BLOCK_LEN);
 
     decompressed_len + num_seek_chunks * padding_per_seek_chunk
 }
 
 fn get_chunk_compressor(compressed_chunk: &[u8]) -> Result<Compressor> {
     let (block_header, _) = BlockHeader::try_from_block(compressed_chunk)?;
-    Ok(block_header.compressor)
+    Ok(block_header.compressor())
 }
 
-pub(crate) fn get_all_chunks_compressor(
+pub fn get_all_chunks_compressor(
     compressed: &[u8],
     decompressed_len: usize,
 ) -> Result<Compressor> {
@@ -111,7 +112,7 @@ fn get_compressed_step_for_decompressed_step(
             BlockHeader::try_from_block(&compressed_chunk[compressed_pos..])?;
         compressed_pos += offset;
 
-        if block_header.is_memcpy {
+        if block_header.is_memcpy() {
             if compressed_chunk.len() - compressed_pos < chunk_size {
                 return Ok(compressed_pos);
             }
@@ -121,12 +122,12 @@ fn get_compressed_step_for_decompressed_step(
         } else {
             let (quantum_header, offset) = QuantumHeader::try_from(
                 &compressed_chunk[compressed_pos..],
-                block_header.has_quantum_crcs,
+                block_header.has_quantum_crcs(),
                 chunk_size,
             )?;
 
             compressed_pos += offset;
-            compressed_pos += quantum_header.compressed_len;
+            compressed_pos += quantum_header.compressed_len();
             decompressed_pos += chunk_size;
         }
     }
@@ -135,7 +136,7 @@ fn get_compressed_step_for_decompressed_step(
 }
 
 #[inline]
-pub(crate) fn compressor_scratch_memory_size(
+pub fn compressor_scratch_memory_size(
     compressor: Compressor,
     decompressed_len: usize,
 ) -> usize {
@@ -163,23 +164,23 @@ mod tests {
     fn test_compressor_scratch_memory_size() {
         assert_eq!(
             compressor_scratch_memory_size(Compressor::Kraken, CHUNK_LEN),
-            446496
+            446_496
         );
         assert_eq!(
             compressor_scratch_memory_size(Compressor::Leviathan, CHUNK_LEN),
-            446496
+            446_496
         );
         assert_eq!(
             compressor_scratch_memory_size(Compressor::Mermaid, CHUNK_LEN),
-            315424
+            315_424
         );
         assert_eq!(
             compressor_scratch_memory_size(Compressor::Selkie, CHUNK_LEN),
-            315424
+            315_424
         );
         assert_eq!(
             compressor_scratch_memory_size(Compressor::Hydra, CHUNK_LEN),
-            446496
+            446_496
         );
     }
 }

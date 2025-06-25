@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 /// Result type for oodle-rs.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 /// Error type for oodle-rs.
 #[derive(Error, Debug)]

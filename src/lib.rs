@@ -1,10 +1,79 @@
 //! Kraken, Mermaid, Selkie, Leviathan compression.
-#![warn(unsafe_code)]
-#![deny(missing_docs)]
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
 
+#![allow(unsafe_code, reason = "allow unsafe code until full implementation")]
+#![deny(missing_docs)]
+#![deny(
+    clippy::cargo,
+    clippy::complexity,
+    clippy::nursery,
+    clippy::pedantic,
+    clippy::perf,
+    clippy::style,
+    clippy::suspicious,
+
+    // use alloc and core instead of std
+    clippy::alloc_instead_of_core,
+    clippy::std_instead_of_alloc,
+    clippy::std_instead_of_core,
+
+    // deny print statements
+    clippy::print_stderr,
+    clippy::print_stdout,
+
+    // deny floating point arithmetic
+    clippy::float_arithmetic,
+
+    // always use expect instead of unwrap
+    clippy::unwrap_used,
+
+    clippy::allow_attributes_without_reason,
+    clippy::empty_enum_variants_with_brackets,
+    clippy::empty_structs_with_brackets,
+    clippy::field_scoped_visibility_modifiers,
+    clippy::get_unwrap,
+    clippy::impl_trait_in_params,
+    clippy::let_underscore_must_use,
+    clippy::let_underscore_untyped,
+    clippy::mem_forget,
+    clippy::missing_assert_message,
+    clippy::modulo_arithmetic,
+    clippy::multiple_inherent_impl,
+    clippy::non_zero_suggestions,
+    clippy::panic,
+    clippy::rc_buffer,
+    clippy::rc_mutex,
+    clippy::ref_patterns,
+    clippy::renamed_function_params,
+    clippy::rest_pat_in_fully_bound_structs,
+    clippy::return_and_then,
+    clippy::same_name_method,
+    clippy::self_named_module_files,
+    clippy::semicolon_outside_block,
+    clippy::single_char_lifetime_names,
+    clippy::str_to_string,
+    clippy::string_add,
+    clippy::string_lit_chars_any,
+    clippy::string_to_string,
+    clippy::suspicious_xor_used_as_pow,
+    clippy::tests_outside_test_module,
+    clippy::try_err,
+    clippy::unnecessary_self_imports,
+    clippy::unneeded_field_pattern,
+    clippy::unseparated_literal_suffix,
+    clippy::unused_result_ok,
+    clippy::unused_trait_names,
+    clippy::use_debug,
+    clippy::verbose_file_reads,
+    clippy::wildcard_enum_match_arm,
+)]
+
+#[allow(
+    clippy::all,
+    clippy::complexity,
+    clippy::nursery,
+    clippy::pedantic,
+    clippy::restriction
+)]
 #[allow(unsafe_code)]
 #[allow(dead_code)]
 #[allow(unsafe_op_in_unsafe_fn)]
@@ -36,13 +105,13 @@ const MAX_SCRATCH_FOR_PHASE_HEADERS_AND_FUZZ: usize = 4096;
 
 #[cfg(test)]
 mod tests {
-    use std::array::from_fn;
+    use core::array::from_fn;
 
     use super::*;
 
     #[test]
     fn test_compress() {
-        let decompressed = std::fs::read("test-data/raw/xml").unwrap();
+        let decompressed = std::fs::read("test-data/raw/xml").expect("Failed to read file");
 
         let compressed_size_hint = get_compressed_buffer_size_hint(decompressed.len());
         let mut compressed = vec![0; compressed_size_hint];
@@ -83,7 +152,8 @@ mod tests {
                 } else {
                     (
                         &compressed[8..],
-                        u64::from_le_bytes(from_fn(|i| compressed[i])) as usize,
+                        usize::try_from(u64::from_le_bytes(from_fn(|i| compressed[i])))
+                            .expect("Failed to convert u64 to usize"),
                     )
                 };
 

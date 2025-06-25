@@ -20,10 +20,12 @@ use crate::error::{
 ///
 /// The number of bytes written to the decompressed buffer.
 ///
+/// # Errors
+///
 /// # Notes
 ///
 /// A dictionary base can be provided within the `decompressed` buffer
-/// at [0..dictionary_len].
+/// at `[0..dictionary_len]`.
 ///
 /// `decompressed.len() - dictionary_len` must be the actual size of the
 /// decompressed data.
@@ -36,7 +38,7 @@ pub fn decompress(
     mut dictionary_len: usize,
 ) -> Result<usize> {
     // If the decompressed buffer is empty, return an error
-    if decompressed.len() == 0 {
+    if decompressed.is_empty() {
         return Err(Error::EmptyBuffer("decompressed buffer is empty"));
     }
 

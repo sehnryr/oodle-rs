@@ -23,23 +23,23 @@ pub enum CompressionLevel {
     /// compression)
     Optimal5,
 
-    /// Faster than SuperFast, less compression
+    /// Faster than [`CompressionLevel::SuperFast`], less compression
     HyperFast1,
-    /// Faster than HyperFast1, less compression
+    /// Faster than [`CompressionLevel::HyperFast1`], less compression
     HyperFast2,
-    /// Faster than HyperFast2, less compression
+    /// Faster than [`CompressionLevel::HyperFast2`], less compression
     HyperFast3,
     /// Fastest, less compression
     HyperFast4,
 }
 
 impl CompressionLevel {
-    /// Alias for HyperFast1
-    pub const HYPER_FAST: CompressionLevel = CompressionLevel::HyperFast1;
-    /// Alias for Optimal5
-    pub const MAX: CompressionLevel = CompressionLevel::Optimal5;
-    /// Alias for HyperFast4
-    pub const MIN: CompressionLevel = CompressionLevel::HyperFast4;
-    /// Alias for Optimal2
-    pub const OPTIMAL: CompressionLevel = CompressionLevel::Optimal2;
+    /// Alias for [`CompressionLevel::HyperFast1`]
+    pub const HYPER_FAST: Self = Self::HyperFast1;
+    /// Alias for [`CompressionLevel::Optimal5`]
+    pub const MAX: Self = Self::Optimal5;
+    /// Alias for [`CompressionLevel::HyperFast4`]
+    pub const MIN: Self = Self::HyperFast4;
+    /// Alias for [`CompressionLevel::Optimal2`]
+    pub const OPTIMAL: Self = Self::Optimal2;
 }

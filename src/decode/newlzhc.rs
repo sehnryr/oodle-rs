@@ -1,4 +1,7 @@
-use crate::bindings::root::oo2::*;
+use crate::bindings::root::oo2::{
+    Leviathan_DecodeOneQuantum,
+    OodleLZ_Decode_ThreadPhase,
+};
 use crate::error::{
     Error,
     Result,
@@ -10,22 +13,22 @@ pub fn decode_one(
     pos_since_reset: usize,
     scratch: &mut [u8],
 ) -> Result<usize> {
-    let base_decompressed_ptr = decompressed.as_mut_ptr();
-    let decompressed_ptr = base_decompressed_ptr.clone();
+    let decompressed_ptr = decompressed.as_mut_ptr();
 
     let read_bytes = unsafe {
         Leviathan_DecodeOneQuantum(
             decompressed_ptr,
             decompressed_ptr.add(decompressed.len()),
             compressed.as_ptr(),
-            compressed.len() as i32,
+            i32::try_from(compressed.len()).expect("length overflow"),
             compressed.as_ptr().add(compressed.len()),
-            pos_since_reset as isize,
-            scratch.as_mut_ptr() as *mut _,
-            scratch.len() as isize,
+            pos_since_reset.cast_signed(),
+            scratch.as_mut_ptr().cast(),
+            scratch.len().cast_signed(),
             OodleLZ_Decode_ThreadPhase::OodleLZ_Decode_ThreadPhaseAll,
-        ) as usize
-    };
+        )
+    }
+    .cast_unsigned() as usize;
 
     if read_bytes == 0 {
         return Err(Error::DecompressionFailed);

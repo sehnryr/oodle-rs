@@ -7,13 +7,21 @@ use crate::model::Compressor;
 
 #[derive(Debug)]
 pub struct BlockHeader {
-    pub(crate) compressor: Compressor,
-    pub(crate) is_memcpy: bool,
-    pub(crate) is_reset: bool,
-    pub(crate) has_quantum_crcs: bool,
+    compressor: Compressor,
+    is_memcpy: bool,
+    is_reset: bool,
+    has_quantum_crcs: bool,
 }
 
 impl BlockHeader {
+    pub const fn compressor(&self) -> Compressor { self.compressor }
+
+    pub const fn is_memcpy(&self) -> bool { self.is_memcpy }
+
+    pub const fn is_reset(&self) -> bool { self.is_reset }
+
+    pub const fn has_quantum_crcs(&self) -> bool { self.has_quantum_crcs }
+
     pub fn try_from_block(block: &[u8]) -> Result<(Self, usize)> {
         if block.len() < BLOCK_HEADER_BYTES_MAX {
             return Err(Error::InvalidChunkSize(block.len()));
@@ -28,7 +36,7 @@ impl BlockHeader {
         let is_memcpy = (block[0] >> 6) & 0b1 == 1;
         let is_reset = (block[0] >> 7) & 0b1 == 1;
 
-        let decode_type = block[1] & 0b1111111;
+        let decode_type = block[1] & 0b0111_1111;
         let has_quantum_crcs = (block[1] >> 7) & 0b1 == 1;
 
         let compressor = match decode_type {

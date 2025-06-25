@@ -10,16 +10,20 @@ const FLAG_SPECIAL_MEMCPY: u32 = 2;
 
 #[derive(Debug)]
 pub struct QuantumHeader {
-    pub(crate) compressed_len: usize,
-    pub(crate) crc: Option<u32>,
-    pub(crate) whole_match: bool,
-    pub(crate) whole_match_offset: usize,
+    compressed_len: usize,
+    crc: Option<u32>,
+    _whole_match: bool,
+    _whole_match_offset: usize,
 
-    pub(crate) huff: bool,
-    pub(crate) extra: bool,
+    huff: bool,
+    extra: bool,
 }
 
 impl QuantumHeader {
+    pub const fn compressed_len(&self) -> usize { self.compressed_len }
+
+    pub const fn crc(&self) -> Option<u32> { self.crc }
+
     pub fn try_from(
         block: &[u8],
         has_quantum_crcs: bool,
@@ -34,8 +38,8 @@ impl QuantumHeader {
         let mut header = Self {
             compressed_len: 0,
             crc: None,
-            whole_match: false,
-            whole_match_offset: 0,
+            _whole_match: false,
+            _whole_match_offset: 0,
             huff: false,
             extra: false,
         };
@@ -53,7 +57,7 @@ impl QuantumHeader {
                     return Err(Error::InvalidChunkSize(block.len()));
                 }
 
-                header.crc = Some(block[3] as u32);
+                header.crc = Some(u32::from(block[3]));
             } else if special == FLAG_SPECIAL_MEMCPY {
                 header.compressed_len = chunk_size;
 

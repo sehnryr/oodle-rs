@@ -1,4 +1,7 @@
-use crate::bindings::root::oo2::*;
+use core::cmp::Ordering;
+use core::ptr;
+
+use crate::bindings::root::oo2::OodleLZ_Compress;
 use crate::error::{
     Error,
     Result,
@@ -25,10 +28,12 @@ use crate::model::{
 ///
 /// The size of the compressed data.
 ///
+/// # Errors
+///
 /// # Notes
 ///
 /// A dictionary base can be provided within the `decompressed` buffer
-/// at [0..dictionary_len].
+/// at `[0..dictionary_len]`.
 pub fn compress(
     decompressed: &[u8],
     compressed: &mut [u8],
@@ -43,26 +48,24 @@ pub fn compress(
     let n = unsafe {
         OodleLZ_Compress(
             compressor.into(),
-            decompressed.as_ptr() as *const _,
-            decompressed.len() as isize,
-            compressed.as_mut_ptr() as *mut _,
+            decompressed.as_ptr().cast(),
+            decompressed.len().cast_signed(),
+            compressed.as_mut_ptr().cast(),
             level.into(),
             &compress_options.into(),
-            dictionary_base.as_ptr() as *const _,
-            std::ptr::null(),
-            std::ptr::null_mut(),
+            dictionary_base.as_ptr().cast(),
+            ptr::null(),
+            ptr::null_mut(),
             0,
         )
     };
 
-    // If oo2_OodleLZ_Compress returns 0 (OODLELZ_FAILED)
-    // it means it detected corruption
-    if n == 0 {
-        return Err(Error::CompressionFailed);
-    } else if n < 0 {
+    match n.cmp(&0) {
+        // If oo2_OodleLZ_Compress returns 0 (OODLELZ_FAILED)
+        // it means it detected corruption
+        Ordering::Equal => Err(Error::CompressionFailed),
         // The result from `oo2_OodleLZ_Compress` is non-negative.
-        unreachable!()
+        Ordering::Less => unreachable!(),
+        Ordering::Greater => Ok(n.cast_unsigned()),
     }
-
-    Ok(n as usize)
 }

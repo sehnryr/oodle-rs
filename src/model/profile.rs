@@ -7,3 +7,9 @@ pub enum Profile {
     /// Reduced profile (Kraken only, limited feature set)
     Reduced,
 }
+
+impl Profile {
+    /// Returns the default profile.
+    #[must_use]
+    pub const fn new() -> Self { Self::Main }
+}

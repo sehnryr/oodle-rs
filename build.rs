@@ -5,12 +5,12 @@ use std::path::{
 };
 
 fn is_cpp<P: AsRef<Path>>(path: P) -> bool {
-    path.as_ref().extension().map_or(false, |ext| ext == "cpp")
+    path.as_ref().extension().is_some_and(|ext| ext == "cpp")
 }
 
 fn main() {
     let oodle_dir = PathBuf::from("oodle/src");
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR environment variable not set"));
 
     let include_dirs = [
         oodle_dir.join("base"),
@@ -22,9 +22,8 @@ fn main() {
     let cpp_files = include_dirs
         .clone()
         .into_iter()
-        .map(|dir| std::fs::read_dir(dir).unwrap())
-        .flatten()
-        .map(|entry| entry.unwrap().path())
+        .flat_map(|dir| std::fs::read_dir(dir).expect("Failed to read directory"))
+        .map(|entry| entry.expect("Failed to read directory entry").path())
         .filter(|path| is_cpp(path));
 
     cc::Build::new()
