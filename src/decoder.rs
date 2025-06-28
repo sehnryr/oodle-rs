@@ -11,15 +11,9 @@ use crate::header::{
     QuantumHeader,
 };
 use crate::model::Compressor;
-use crate::util::compression::{
-    compressor_scratch_memory_size,
-    get_all_chunks_compressor,
-};
 use crate::util::crc::compute_crc;
 
 pub struct Decoder<'bytes> {
-    compressor: Compressor,
-
     compressed: &'bytes [u8],
     decompressed: &'bytes mut [u8],
 
@@ -34,17 +28,14 @@ pub struct Decoder<'bytes> {
 }
 
 impl<'bytes> Decoder<'bytes> {
-    pub fn new(
+    pub const fn new(
         compressed: &'bytes [u8],
         decompressed: &'bytes mut [u8],
         decode_start_offset: usize,
         dictionary_len: usize,
         check_crc: bool,
-    ) -> Result<Self> {
-        let compressor = get_all_chunks_compressor(compressed, decompressed.len())?;
-
-        Ok(Self {
-            compressor,
+    ) -> Self {
+        Self {
             compressed,
             decompressed,
             compressed_pos: 0,
@@ -53,7 +44,7 @@ impl<'bytes> Decoder<'bytes> {
             check_crc,
             header: None,
             reset_pos: None,
-        })
+        }
     }
 
     pub fn decode(&mut self) -> Result<usize> {
@@ -191,30 +182,24 @@ impl<'bytes> Decoder<'bytes> {
     ) -> Result<()> {
         let pos_since_reset = self.decompressed_pos - self.reset_pos.unwrap_or(0);
 
-        let scratch_size = compressor_scratch_memory_size(self.compressor, self.decompressed.len());
-        let mut scratch = vec![0_u8; scratch_size];
-
         let read_bytes = match block_compressor {
             Compressor::Kraken => newlz_decode_one(
                 &self.compressed[self.compressed_pos..self.compressed_pos + block_compressed_len],
                 &mut self.decompressed
                     [self.decompressed_pos..self.decompressed_pos + raw_bytes_to_go],
                 pos_since_reset,
-                &mut scratch,
             )?,
             Compressor::Mermaid => newlzf_decode_one(
                 &self.compressed[self.compressed_pos..self.compressed_pos + block_compressed_len],
                 &mut self.decompressed
                     [self.decompressed_pos..self.decompressed_pos + raw_bytes_to_go],
                 pos_since_reset,
-                &mut scratch,
             )?,
             Compressor::Leviathan => newlzhc_decode_one(
                 &self.compressed[self.compressed_pos..self.compressed_pos + block_compressed_len],
                 &mut self.decompressed
                     [self.decompressed_pos..self.decompressed_pos + raw_bytes_to_go],
                 pos_since_reset,
-                &mut scratch,
             )?,
             Compressor::Selkie | Compressor::Hydra => unreachable!(),
         };

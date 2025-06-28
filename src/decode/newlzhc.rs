@@ -2,18 +2,23 @@ use super::error::{
     DecodeError,
     DecodeResult,
 };
+use crate::CHUNK_LEN;
 use crate::bindings::root::oo2::{
     Leviathan_DecodeOneQuantum,
     OodleLZ_Decode_ThreadPhase,
 };
+use crate::model::Compressor;
+use crate::util::compression::compressor_scratch_memory_size;
 
 pub fn decode_one(
     compressed: &[u8],
     decompressed: &mut [u8],
     pos_since_reset: usize,
-    scratch: &mut [u8],
 ) -> DecodeResult<usize> {
     let decompressed_ptr = decompressed.as_mut_ptr();
+
+    let scratch_size = compressor_scratch_memory_size(Compressor::Leviathan, CHUNK_LEN);
+    let mut scratch = vec![0_u8; scratch_size];
 
     let read_bytes = unsafe {
         Leviathan_DecodeOneQuantum(

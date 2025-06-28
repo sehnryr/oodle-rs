@@ -61,7 +61,7 @@ pub fn decompress(
         decode_start_offset,
         dictionary_len,
         check_crc,
-    )?;
+    );
 
     decoder.decode()
 }

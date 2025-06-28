@@ -22,7 +22,6 @@ pub fn decode_one(
     compressed: &[u8],
     decompressed: &mut [u8],
     pos_since_reset: usize,
-    scratch: &mut [u8],
 ) -> DecodeResult<usize> {
     debug_assert!(
         decompressed.len() <= BLOCK_LEN,
@@ -31,6 +30,9 @@ pub fn decode_one(
 
     let mut compressed_pos = 0;
     let mut decompressed_pos = 0;
+
+    let scratch_size = compressor_scratch_memory_size(Compressor::Kraken, CHUNK_LEN);
+    let mut scratch = vec![0_u8; scratch_size];
 
     while decompressed_pos < decompressed.len() {
         let chunk_len = (decompressed.len() - decompressed_pos).min(CHUNK_LEN);
@@ -89,11 +91,6 @@ pub fn decode_one(
                 ));
             }
 
-            debug_assert!(
-                scratch.len() >= compressor_scratch_memory_size(Compressor::Kraken, chunk_len),
-                "scratch memory size is too small"
-            );
-
             // This is normally created from the scratch memory,
             // but I don't want to use scratch memory for this rust reimplementation
             let mut chunk_arrays = newLZ_chunk_arrays {
@@ -114,7 +111,7 @@ pub fn decode_one(
                 &compressed[compressed_pos..compressed_pos + chunk_compressed_len],
                 &mut decompressed[decompressed_pos..decompressed_pos + chunk_len],
                 chunk_pos,
-                scratch,
+                &mut scratch,
                 &mut chunk_arrays,
             );
 
