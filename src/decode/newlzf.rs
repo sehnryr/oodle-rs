@@ -1,10 +1,10 @@
+use super::error::{
+    DecodeError,
+    DecodeResult,
+};
 use crate::bindings::root::oo2::{
     Mermaid_DecodeOneQuantum,
     OodleLZ_Decode_ThreadPhase,
-};
-use crate::error::{
-    Error,
-    Result,
 };
 
 pub fn decode_one(
@@ -12,7 +12,7 @@ pub fn decode_one(
     decompressed: &mut [u8],
     pos_since_reset: usize,
     scratch: &mut [u8],
-) -> Result<usize> {
+) -> DecodeResult<usize> {
     let decompressed_ptr = decompressed.as_mut_ptr();
 
     let read_bytes = unsafe {
@@ -31,11 +31,11 @@ pub fn decode_one(
     .cast_unsigned() as usize;
 
     if read_bytes == 0 {
-        return Err(Error::DecompressionFailed);
+        return Err(DecodeError::DecompressionFailed);
     }
 
     if read_bytes != compressed.len() {
-        return Err(Error::DecompressionError(format!(
+        return Err(DecodeError::DecompressionError(format!(
             "Decompressed data does not match header: {} != {}",
             read_bytes,
             compressed.len()

@@ -2,6 +2,8 @@
 
 use thiserror::Error;
 
+use crate::decode::error::DecodeError;
+
 /// Result type for oodle-rs.
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -75,4 +77,8 @@ pub enum Error {
     /// Invalid chunk type.
     #[error("Invalid chunk type: {0}")]
     InvalidChunkType(usize),
+
+    /// Decode error.
+    #[error("Decode error: {0}")]
+    DecodeError(#[from] DecodeError),
 }

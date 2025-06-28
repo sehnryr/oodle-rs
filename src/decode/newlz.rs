@@ -1,14 +1,15 @@
 use core::ptr;
 
+use super::error::{
+    DecodeError,
+    DecodeResult,
+};
 use crate::bindings::root::oo2::{
     newLZ_chunk_arrays,
     newLZ_decode_chunk_phase1,
     newLZ_decode_chunk_phase2,
 };
-use crate::error::{
-    Error,
-    Result,
-};
+use crate::decode::literal_type::LiteralType;
 use crate::model::Compressor;
 use crate::util::compression::compressor_scratch_memory_size;
 use crate::{
@@ -22,7 +23,7 @@ pub fn decode_one(
     decompressed: &mut [u8],
     pos_since_reset: usize,
     scratch: &mut [u8],
-) -> Result<usize> {
+) -> DecodeResult<usize> {
     debug_assert!(
         decompressed.len() <= BLOCK_LEN,
         "decompressed data exceeds block length"
@@ -39,7 +40,7 @@ pub fn decode_one(
         // - 3 bytes for the header
         // - 1 byte for the payload
         if compressed.len() - compressed_pos < 4 {
-            return Err(Error::InvalidCompressedData(
+            return Err(DecodeError::InvalidCompressedData(
                 "Not enough data to read chunk header",
             ));
         }
@@ -50,35 +51,42 @@ pub fn decode_one(
             compressed[compressed_pos + 1],
             compressed[compressed_pos + 2],
         ]) as usize;
-        let chunk_type @ (0 | 1) = chunk_compressed_len >> 19 & 0xF else {
-            return Err(Error::InvalidCompressedData("Invalid chunk type"));
-        };
+        let chunk_type = LiteralType::try_from(chunk_compressed_len >> 19 & 0xF)?;
+        debug_assert!(
+            chunk_type == LiteralType::Sub || chunk_type == LiteralType::Raw,
+            "chunk type should be either Subtract or Raw for newlz"
+        );
         chunk_compressed_len &= (1 << 19) - 1;
 
         compressed_pos += 3;
 
         if chunk_compressed_len > compressed.len() - compressed_pos {
-            return Err(Error::InvalidCompressedData(
+            return Err(DecodeError::InvalidCompressedData(
                 "Chunk compressed length exceeds available data",
             ));
         }
         if chunk_compressed_len > chunk_len {
-            return Err(Error::InvalidCompressedData(
+            return Err(DecodeError::InvalidCompressedData(
                 "Chunk compressed length exceeds chunk length",
             ));
         }
 
-        // Raw chunk
         if chunk_compressed_len == chunk_len {
-            if chunk_type != 0 {
-                return Err(Error::InvalidCompressedData("Chunk type is not raw"));
+            // Is this the good chunk type ?
+            // In oodle's source code, they check whether the chunk type is not 0,
+            // with the comment `//raw`, meaning they expect the chunk type to be Raw.
+            // But 0 is Sub. That's weird. Will have to check later.
+            if chunk_type != LiteralType::Sub {
+                return Err(DecodeError::InvalidCompressedData("Chunk type is not raw"));
             }
 
             decompressed[decompressed_pos..decompressed_pos + chunk_len]
                 .copy_from_slice(&compressed[compressed_pos..compressed_pos + chunk_len]);
         } else {
             if chunk_len < MIN_CHUNK_LEN {
-                return Err(Error::InvalidCompressedData("Chunk length is too short"));
+                return Err(DecodeError::InvalidCompressedData(
+                    "Chunk length is too short",
+                ));
             }
 
             debug_assert!(
@@ -126,7 +134,7 @@ pub fn decode_one(
 }
 
 fn decode_chunk_phase1(
-    chunk_type: usize,
+    chunk_type: LiteralType,
     compressed: &[u8],
     decompressed: &mut [u8],
     chunk_pos: usize,
@@ -139,7 +147,7 @@ fn decode_chunk_phase1(
         let scratch_ptr = scratch.as_mut_ptr();
 
         let result = newLZ_decode_chunk_phase1(
-            i32::try_from(chunk_type).expect("invalid chunk type"),
+            i32::from(chunk_type),
             compressed_ptr,
             compressed_ptr.add(compressed.len()),
             decompressed_ptr,
@@ -165,7 +173,7 @@ fn decode_chunk_phase1(
 }
 
 fn decode_chunk_phase2(
-    chunk_type: usize,
+    chunk_type: LiteralType,
     decompressed: &mut [u8],
     chunk_pos: usize,
     chunk_arrays: &mut newLZ_chunk_arrays,
@@ -174,7 +182,7 @@ fn decode_chunk_phase2(
         let decompressed_ptr = decompressed.as_mut_ptr();
 
         newLZ_decode_chunk_phase2(
-            i32::try_from(chunk_type).expect("invalid chunk type"),
+            i32::from(chunk_type),
             decompressed_ptr,
             decompressed.len().cast_signed(),
             chunk_pos.cast_signed(),
